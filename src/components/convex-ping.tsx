@@ -9,11 +9,19 @@ export function ConvexPing() {
 
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card px-6 py-4 text-card-foreground">
-      <p className="text-sm text-muted-foreground">Convex</p>
+      <p className="text-sm text-muted-foreground">
+        Convex
+      </p>
       <p className="text-base font-medium tabular-nums">
         {ping === undefined ? "Loading…" : ping.message}
       </p>
-      <Button type="button" variant="secondary" size="sm" disabled>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          console.log("Button clicked");
+        }}>
         shadcn Button
       </Button>
     </div>
