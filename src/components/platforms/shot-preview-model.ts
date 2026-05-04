@@ -7,7 +7,7 @@ export type ShotPlatformEntry = {
 };
 
 export type ShotPlatforms = {
-  twitter: ShotPlatformEntry;
+  x: ShotPlatformEntry;
   instagram: ShotPlatformEntry;
   youtube: ShotPlatformEntry;
   tiktok: ShotPlatformEntry;

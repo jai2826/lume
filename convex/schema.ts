@@ -12,7 +12,7 @@ export const shotPlatformEntryValidator = v.object({
 });
 
 export const shotPlatformsValidator = v.object({
-  twitter: shotPlatformEntryValidator,
+  x: shotPlatformEntryValidator,
   instagram: shotPlatformEntryValidator,
   youtube: shotPlatformEntryValidator,
   tiktok: shotPlatformEntryValidator,

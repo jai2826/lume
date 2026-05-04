@@ -83,11 +83,19 @@ export const markOnboardingComplete = mutation({
  * Get all linked accounts for a user, grouped by platform
  */
 export const getUserLinkedAccounts = query({
-  args: { userId: v.id("users") },
+  args: { clerkId: v.string() }, // Change from v.id("users")
   handler: async (ctx, args) => {
+    // First, find the internal Convex User ID using the Clerk ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) return null;
+
     const accounts = await ctx.db
       .query("social_keys")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .collect();
 
     // Group by platform
@@ -97,6 +105,7 @@ export const getUserLinkedAccounts = query({
         youtube: [],
         x: [],
         tiktok: [],
+        snapchat: [],
       };
 
     for (const account of accounts) {
@@ -121,7 +130,8 @@ export const storeOAuthToken = mutation({
       v.literal("instagram"),
       v.literal("youtube"),
       v.literal("x"),
-      v.literal("tiktok")
+      v.literal("tiktok"),
+      v.literal("snapchat")
     ),
     accountName: v.string(),
     encryptedOAuthToken: v.string(),
@@ -159,6 +169,21 @@ export const storeOAuthToken = mutation({
     });
 
     return newId;
+  },
+});
+
+/**
+ * Get a user document by Clerk ID
+ */
+export const getUserByClerkId = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    return user || null;
   },
 });
 

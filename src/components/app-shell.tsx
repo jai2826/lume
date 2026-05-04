@@ -1,3 +1,5 @@
+import { Show, UserButton } from "@clerk/nextjs";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -38,26 +40,44 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="#"
-              className={cn(
-                buttonVariants({
-                  variant: "ghost",
-                  size: "sm",
-                }),
-              )}>
-              Sign in
-            </Link>
-            <Link
-              href="#"
-              className={cn(
-                buttonVariants({
-                  variant: "outline",
-                  size: "sm",
-                }),
-              )}>
-              Get started
-            </Link>
+            <Show when="signed-out">
+              <Link
+                href="/sign-in"
+                className={cn(
+                  buttonVariants({
+                    variant: "ghost",
+                    size: "sm",
+                  }),
+                )}>
+                Sign in
+              </Link>
+              <Link
+                href="/sign-up"
+                className={cn(
+                  buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                  }),
+                )}>
+                Get started
+              </Link>
+            </Show>
+
+            <Show when="signed-in">
+              <Link
+                href="/settings"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                )}
+                aria-label="Settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+
+              <div className="flex items-center">
+                <UserButton  />
+              </div>
+            </Show>
           </div>
         </nav>
       </header>

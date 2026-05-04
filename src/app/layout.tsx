@@ -1,10 +1,9 @@
-import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AppShell } from "@/components/app-shell";
 
-import { ConvexClientProvider } from "./ConvexClientProvider";
+import { MainProvider } from "@/app/_provider/MainProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,6 +21,8 @@ export const metadata: Metadata = {
   description: "Social media distribution for creators",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,11 +33,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <ClerkProvider>
-          <ConvexClientProvider>
-            <AppShell>{children}</AppShell>
-          </ConvexClientProvider>
-        </ClerkProvider>
+        <MainProvider>
+          <AppShell>{children}</AppShell>
+        </MainProvider>
       </body>
     </html>
   );

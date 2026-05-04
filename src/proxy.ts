@@ -19,37 +19,44 @@ const convex = new ConvexHttpClient(
 
 export default clerkMiddleware(
   async (auth, request: NextRequest) => {
-    // Get auth session
-    const { userId, redirectToSignIn } = await  auth();
+    const { userId, redirectToSignIn } = await auth();
+    const url = request.nextUrl.pathname;
 
-    // If not authenticated and trying to access protected routes, redirect to sign-in
+    // 1. Protect routes
     if (!userId && isProtectedRoute(request)) {
-      return  redirectToSignIn();
+      return redirectToSignIn();
     }
 
-    // If authenticated, check onboarding status
+    // 2. Handle Onboarding Logic
     if (userId) {
       try {
-        // Get user from Convex by clerkId
-        const users = await convex.query(
-          api.auth.getUserLinkedAccounts,
-          {
-            userId: userId as Id<'users'>, // Type assertion - we'll fix this with proper Convex auth
-          },
+        // Use the specific ClerkId query we fixed above
+        const user = await convex.query(
+          api.auth.getUserByClerkId,
+          { clerkId: userId },
         );
 
-        // TODO: This is a simplified check. Proper implementation requires:
-        // 1. Get userId from Convex by clerkId
-        // 2. Check hasCompletedOnboarding flag
-        // 3. Redirect accordingly
+        // If user exists in Convex but hasn't completed onboarding
+        if (
+          user &&
+          !user.hasCompletedOnboarding &&
+          url !== "/onboarding"
+        ) {
+          return NextResponse.redirect(
+            new URL("/onboarding", request.url),
+          );
+        }
 
-        // For now, we'll rely on server-side checks in page.tsx
+        if (
+          url.startsWith("/sign-in") ||
+          url.startsWith("/sign-up")
+        ) {
+          return NextResponse.redirect(
+            new URL("/onboarding", request.url),
+          );
+        }
       } catch (error) {
-        console.error(
-          "Failed to check onboarding status:",
-          error,
-        );
-        // Continue without blocking on error
+        console.error("Auth check failed:", error);
       }
     }
 

@@ -115,10 +115,10 @@ function PlatformCells({ shot }: { shot: ShotPreviewData }) {
   return (
     <>
       <BentoGlow
-        status={shot.platforms.twitter.status}
+        status={shot.platforms.x.status}
         className="flex flex-col bg-card lg:col-span-6"
       >
-        <StatusStrip entry={shot.platforms.twitter} label="X / Twitter" />
+        <StatusStrip entry={shot.platforms.x} label="X / Twitter" />
         <div className="max-h-[min(58vh,520px)] overflow-auto px-4 py-4">
           <TwitterShot shot={shot} className="max-w-full shadow-none ring-1 ring-muted-foreground/10" />
         </div>
@@ -202,7 +202,7 @@ export function DashboardWorkspace() {
 
   const platformsForCount: ShotPlatformEntry[] = shot
     ? [
-        shot.platforms.twitter,
+        shot.platforms.x,
         shot.platforms.instagram,
         shot.platforms.youtube,
         shot.platforms.tiktok,
