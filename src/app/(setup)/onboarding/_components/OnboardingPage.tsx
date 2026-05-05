@@ -163,6 +163,7 @@ export function OnboardingPage({ clerkUserId }: { clerkUserId: string }) {
        <header className="text-center mb-8">
           <h1 className="text-4xl font-bold">Connect {currentStudio.name}</h1>
           {/* ... */}
+       </header>
     </div>
   );
 }

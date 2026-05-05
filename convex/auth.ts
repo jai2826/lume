@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+import { NextResponse } from "next/server";
+
 /**
  * ==========================================
  * USER MANAGEMENT
@@ -133,7 +135,7 @@ export const getStudioLinkedAccounts = query({
 
 export const storeOAuthToken = mutation({
   args: {
-    studioId: v.id("studios"), // REPLACED userId
+    studioId: v.id("studios"), 
     platform: v.union(
       v.literal("instagram"),
       v.literal("youtube"),
@@ -142,16 +144,20 @@ export const storeOAuthToken = mutation({
       v.literal("snapchat"),
     ),
     accountName: v.string(),
-    platformAccountId: v.string(), // REQUIRED to handle multiple channels correctly
+    platformAccountId: v.string(), 
     encryptedOAuthToken: v.string(),
     refreshToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // 1. SECURITY: Validate Convex Identity
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    if (!identity) {
+      // Throw a standard error. Next.js will catch this in its try/catch block.
+      throw new Error("Unauthorized: Invalid or missing Convex token.");
+    }
 
-    // Check if account already exists using the precise compound index
+    // 2. Check if account already exists using the precise compound index
     const existing = await ctx.db
       .query("social_keys")
       .withIndex("by_studio_platform_account", (q) =>
@@ -163,19 +169,19 @@ export const storeOAuthToken = mutation({
       .first();
 
     if (existing) {
-      // Update existing entry (e.g., refresh token rotation)
+      // 3. Update existing entry (e.g., refresh token rotation)
       await ctx.db.patch(existing._id, {
-        accountName: args.accountName, // In case they renamed their channel
+        accountName: args.accountName, 
         encryptedOAuthToken: args.encryptedOAuthToken,
         ...(args.refreshToken && {
           refreshToken: args.refreshToken,
-        }), // Only update if new one exists
+        }), 
         tokenExpiresAt: args.tokenExpiresAt,
       });
       return existing._id;
     }
 
-    // Insert new entry
+    // 4. Insert new entry
     const newId = await ctx.db.insert("social_keys", {
       studioId: args.studioId,
       platform: args.platform,

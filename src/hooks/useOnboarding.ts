@@ -9,6 +9,7 @@ export interface LinkedAccounts {
   youtube: Array<{ accountName: string; _id: string }>;
   x: Array<{ accountName: string; _id: string }>;
   tiktok: Array<{ accountName: string; _id: string }>;
+  snapchat: Array<{ accountName: string; _id: string }>;
 }
 
 interface UseOnboardingReturn {

@@ -1,11 +1,17 @@
-'use client';
+"use client";
 import { UserButton } from "@clerk/nextjs";
 import { Settings } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Authenticated, Unauthenticated } from "convex/react";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+} from "convex/react";
+import { StudioSwitcher } from "@/components/studio-switcher";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function AppShell({
   children,
@@ -31,10 +37,14 @@ export function AppShell({
           </Link>
 
           <div className="hidden flex-1 items-center justify-center gap-1 sm:flex">
-            {(["Studio", "Channels", "Analytics"] as const).map((item) => (
+            {(
+              ["Studio", "Channels", "Analytics"] as const
+            ).map((item) => (
               <Link
                 key={item}
-                href={item === "Studio" ? "/dashboard" : "#"}
+                href={
+                  item === "Studio" ? "/dashboard" : "#"
+                }
                 className="rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground">
                 {item}
               </Link>
@@ -64,20 +74,29 @@ export function AppShell({
                 Get started
               </Link>
             </Unauthenticated>
-
+            <AuthLoading>
+              <Skeleton className="h-9 w-20 rounded-md" />{" "}
+              <Skeleton className="h-9 w-9 rounded-md" />{" "}
+              {/* Settings button placeholder */}
+              <Skeleton className="h-8 w-8 rounded-full" />{" "}
+              {/* User Avatar placeholder */}
+            </AuthLoading>
             <Authenticated>
+              <StudioSwitcher />
               <Link
                 href="/settings"
                 className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  buttonVariants({
+                    variant: "ghost",
+                    size: "sm",
+                  }),
                 )}
-                aria-label="Settings"
-              >
+                aria-label="Settings">
                 <Settings className="h-4 w-4" />
               </Link>
 
               <div className="flex items-center">
-                <UserButton  />
+                <UserButton />
               </div>
             </Authenticated>
           </div>

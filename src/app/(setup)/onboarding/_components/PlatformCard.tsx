@@ -81,7 +81,7 @@ export function PlatformCard({
               <div
                 key={account._id}
                 className="text-xs text-muted-foreground py-1 px-2 bg-muted/20 rounded">
-                @{account.accountName}
+                {account.accountName}
               </div>
             ))}
           </div>

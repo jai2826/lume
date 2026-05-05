@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,15 +36,9 @@ export default function OnboardingPage() {
   const handleAddAccount = (platform: string) => {
     if (!currentStudio) return toast.error("Studio not found.");
 
-    const state = currentStudio._id; 
-    const redirectUri = `${window.location.origin}/api/auth/${platform}/callback`;
-
-    if (platform === "youtube") {
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=https://www.googleapis.com/auth/youtube.upload&response_type=code&state=${state}&access_type=offline&prompt=consent`;
-      return;
-    }
-
-    window.location.href = `/api/auth/${platform}?state=${state}`;
+    // Pass studioId as query parameter to OAuth auth endpoint
+    const authUrl = `/api/onboarding/${platform}/auth?studioId=${currentStudio._id}`;
+    window.location.href = authUrl;
   };
 
   if (studios === undefined) {

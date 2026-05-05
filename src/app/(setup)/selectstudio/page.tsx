@@ -24,10 +24,10 @@ export default function SelectStudioPage() {
     }
 
     // 3. If they have EXACTLY ONE studio, skip this page and auto-login
-    if (studios.length === 1 && !isRouting) {
-      setIsRouting(true);
-      useSelectStudio(studios[0]._id, studios[0].slug);
-    }
+    // if (studios.length === 1 && !isRouting) {
+    //   setIsRouting(true);
+    //   useSelectStudio(studios[0]._id, studios[0].slug);
+    // }
   }, [studios, router, isRouting]);
 
   // Loading state

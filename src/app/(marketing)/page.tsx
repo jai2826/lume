@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { LandingShowcaseBento } from "@/components/marketing/landing-showcase-bento";
+// import { LandingShowcaseBento } from "@/components/marketing/landing-showcase-bento";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -71,7 +71,7 @@ export default function MarketingLandingPage() {
             media constraints you can recognize at a glance.
           </p>
         </div>
-        <LandingShowcaseBento />
+        {/* <LandingShowcaseBento /> */}
       </section>
 
       <footer className="relative z-[1] border-t border-border/65 bg-background/50 py-14 backdrop-blur-xl">

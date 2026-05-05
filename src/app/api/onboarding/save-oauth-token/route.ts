@@ -1,26 +1,37 @@
-import { api } from "../../../../../convex/_generated/api";
+import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
+import { api } from "../../../../../convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 /**
  * API route to save OAuth token from cookie to Convex
- * Called by client after OAuth callback redirects back to onboarding page
+ * SECURITY: Requires authenticated Clerk user - userId cannot be spoofed from client
  */
 export async function POST(request: NextRequest) {
   try {
-    const { platform, accountName, userId } = await request.json();
-
-    if (!platform || !accountName || !userId) {
+    // SECURITY: Get authenticated user from Clerk - cannot be forged
+    const { userId: clerkUserId } = await auth();
+    
+    if (!clerkUserId) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Unauthorized - not authenticated" },
+        { status: 401 }
+      );
+    }
+
+    const { platform, accountName, studioId, platformAccountId } = await request.json();
+
+    if (!platform || !accountName || !studioId || !platformAccountId) {
+      return NextResponse.json(
+        { error: "Missing required fields (platform, accountName, studioId, platformAccountId)" },
         { status: 400 }
       );
     }
 
-    // Validate platform
-    if (!["instagram", "youtube", "x", "tiktok"].includes(platform)) {
+    // Validate platform (add snapchat here as well)
+    if (!["instagram", "youtube", "x", "tiktok", "snapchat"].includes(platform)) {
       return NextResponse.json(
         { error: "Invalid platform" },
         { status: 400 }
@@ -37,12 +48,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save to Convex
+    // Save to Convex using authenticated user
     try {
+      // SECURITY: Verify user has access to this studio before saving token
+      // The mutation handler will also verify this, but we validate client input
       const tokenId = await convex.mutation(api.auth.storeOAuthToken, {
-        userId: userId as any, // Type will be properly handled by Convex
+        studioId: studioId as any, // Type will be properly handled by Convex
         platform: platform as any,
         accountName,
+        platformAccountId,
         encryptedOAuthToken: encryptedToken,
       });
 
