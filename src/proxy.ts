@@ -1,72 +1,44 @@
-import { api } from "../convex/_generated/api";
-import {
-  clerkMiddleware,
-  createRouteMatcher,
-} from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
-import type { NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { Id } from "../convex/_generated/dataModel";
 
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/onboarding(.*)",
+const isPublicRoute = createRouteMatcher([
+  "/", // Marketing Landing Page
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  // CRITICAL: OAuth callbacks and Webhooks must be public!
+  "/api/auth/youtube/callback",
+  "/api/webhooks/clerk",
 ]);
 
-const convex = new ConvexHttpClient(
-  process.env.NEXT_PUBLIC_CONVEX_URL!,
-);
+export default clerkMiddleware(async (auth, request) => {
+  const url = request.nextUrl.pathname;
+  const { userId, redirectToSignIn } = await auth();
 
-export default clerkMiddleware(
-  async (auth, request: NextRequest) => {
-    const { userId, redirectToSignIn } = await auth();
-    const url = request.nextUrl.pathname;
+  // 1. Core Security: Bounce unauthenticated users trying to access private routes
+  if (!isPublicRoute(request)) {
+    // If they aren't logged in, Clerk handles the redirect to /sign-in safely
+    if (!userId) return redirectToSignIn(); 
+  }
 
-    // 1. Protect routes
-    if (!userId && isProtectedRoute(request)) {
-      return redirectToSignIn();
+  // 2. Logged-In User Routing Logic
+  if (userId) {
+    // If a logged-in user tries to view the marketing page or sign-in pages, 
+    // push them straight to the application hub.
+    if (url === "/" || url.startsWith("/sign-in") || url.startsWith("/sign-up")) {
+      return NextResponse.redirect(new URL("/selectstudio", request.url));
     }
+    
+    // Do NOT put database queries here. 
+    // Let your /selectstudio page load, fetch the studios on the client side, 
+    // and auto-redirect them to /dashboard if needed.
+  }
 
-    // 2. Handle Onboarding Logic
-    if (userId) {
-      try {
-        // Use the specific ClerkId query we fixed above
-        const user = await convex.query(
-          api.auth.getUserByClerkId,
-          { clerkId: userId },
-        );
-
-        // If user exists in Convex but hasn't completed onboarding
-        if (
-          user &&
-          !user.hasCompletedOnboarding &&
-          url !== "/onboarding"
-        ) {
-          return NextResponse.redirect(
-            new URL("/onboarding", request.url),
-          );
-        }
-
-        if (
-          url.startsWith("/sign-in") ||
-          url.startsWith("/sign-up")
-        ) {
-          return NextResponse.redirect(
-            new URL("/onboarding", request.url),
-          );
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-      }
-    }
-
-    return NextResponse.next();
-  },
-);
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
+    // Skip Next.js internals and all static files
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     // Always run for API routes
     "/(api|trpc)(.*)",

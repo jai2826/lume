@@ -1,7 +1,7 @@
 /** Client-side preview model aligned with Convex `shots` documents. */
 
 export type ShotPlatformEntry = {
-  status: "idle" | "generating" | "ready";
+  status: "idle" | "generating" | "ready" | "published" | "failed";
   generatedText: string;
   mediaAssetUrl: string;
 };
@@ -18,6 +18,7 @@ export type ShotInputs = {
   text: string;
   images: string[];
   videos: string[];
+  audios: string[];
 };
 
 export type ShotPreviewData = {

@@ -2,9 +2,11 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 /**
- * Create or update a user based on Clerk authentication
- * Called on first app load after user signs in with Clerk
+ * ==========================================
+ * USER MANAGEMENT
+ * ==========================================
  */
+
 export const createOrUpdateUser = mutation({
   args: {
     clerkId: v.string(),
@@ -12,14 +14,29 @@ export const createOrUpdateUser = mutation({
     name: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Try to find existing user by clerkId
+    // SECURITY: Verify the request is actually coming from the authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error(
+        "CRITICAL: Identity is null. Convex is rejecting the Clerk token.",
+      );
+    }
+
+    if (identity.subject !== args.clerkId) {
+      throw new Error(
+        `CRITICAL: ID Mismatch. Clerk sent ${args.clerkId}, but token says ${identity.subject}`,
+      );
+    }
+
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .withIndex("by_clerkId", (q) =>
+        q.eq("clerkId", args.clerkId),
+      )
       .first();
 
     if (existingUser) {
-      // Update name/email if provided
       if (args.email || args.name) {
         await ctx.db.patch(existingUser._id, {
           email: args.email || existingUser.email,
@@ -29,84 +46,79 @@ export const createOrUpdateUser = mutation({
       return existingUser;
     }
 
-    // Create new user with hasCompletedOnboarding = false
     const newUserId = await ctx.db.insert("users", {
       clerkId: args.clerkId,
       email: args.email,
       name: args.name,
-      hasCompletedOnboarding: false,
     });
 
     return await ctx.db.get(newUserId);
   },
 });
 
-/**
- * Get current user's profile based on Clerk context
- * Note: Requires Clerk middleware in Convex (advanced setup)
- * Alternative: Pass userId directly from client after calling createOrUpdateUser
- */
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    // TODO: Integrate Clerk auth context once Clerk middleware is configured
-    // For now, this is a placeholder. Client should fetch user ID from Clerk
-    // and pass it explicitly to queries/mutations.
-    return null;
-  },
-});
+    // FIXED: Properly fetches the identity from Clerk via Convex
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
 
-/**
- * Get current user by userId (called from client after Clerk auth)
- */
-export const getUserById = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
-  },
-});
-
-/**
- * Mark onboarding as complete for a user
- */
-export const markOnboardingComplete = mutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      hasCompletedOnboarding: true,
-    });
-    return await ctx.db.get(args.userId);
-  },
-});
-
-/**
- * Get all linked accounts for a user, grouped by platform
- */
-export const getUserLinkedAccounts = query({
-  args: { clerkId: v.string() }, // Change from v.id("users")
-  handler: async (ctx, args) => {
-    // First, find the internal Convex User ID using the Clerk ID
-    const user = await ctx.db
+    return await ctx.db
       .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .withIndex("by_clerkId", (q) =>
+        q.eq("clerkId", identity.subject),
+      )
+      .first();
+  },
+});
+
+/**
+ * ==========================================
+ * OAUTH & SOCIAL KEYS (STUDIO ARCHITECTURE)
+ * ==========================================
+ */
+
+export const getStudioLinkedAccounts = query({
+  args: { studioId: v.id("studios") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    // 1. Verify the user actually has access to this studio
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", identity.subject),
+      )
+      .filter((q) =>
+        q.eq(q.field("studioId"), args.studioId),
+      )
       .first();
 
-    if (!user) return null;
+    if (!membership)
+      throw new Error(
+        "Unauthorized: Not a member of this studio",
+      );
 
+    // 2. Fetch the keys tied to the STUDIO
     const accounts = await ctx.db
       .query("social_keys")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_studio", (q) =>
+        q.eq("studioId", args.studioId),
+      )
       .collect();
 
     // Group by platform
-    const grouped: Record<string, Array<{ accountName: string; _id: string }>> =
-      {
-        instagram: [],
-        youtube: [],
-        x: [],
-        tiktok: [],
-        snapchat: [],
-      };
+    const grouped: Record<
+      string,
+      Array<{ accountName: string; _id: string }>
+    > = {
+      instagram: [],
+      youtube: [],
+      x: [],
+      tiktok: [],
+      snapchat: [],
+    };
 
     for (const account of accounts) {
       grouped[account.platform].push({
@@ -119,40 +131,45 @@ export const getUserLinkedAccounts = query({
   },
 });
 
-/**
- * Store OAuth token for a platform account
- * Called after OAuth callback successfully exchanges code for token
- */
 export const storeOAuthToken = mutation({
   args: {
-    userId: v.id("users"),
+    studioId: v.id("studios"), // REPLACED userId
     platform: v.union(
       v.literal("instagram"),
       v.literal("youtube"),
       v.literal("x"),
       v.literal("tiktok"),
-      v.literal("snapchat")
+      v.literal("snapchat"),
     ),
     accountName: v.string(),
+    platformAccountId: v.string(), // REQUIRED to handle multiple channels correctly
     encryptedOAuthToken: v.string(),
     refreshToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Check if account already exists for this user/platform/accountName
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    // Check if account already exists using the precise compound index
     const existing = await ctx.db
       .query("social_keys")
-      .withIndex("by_userId_platform", (q) =>
-        q.eq("userId", args.userId).eq("platform", args.platform)
+      .withIndex("by_studio_platform_account", (q) =>
+        q
+          .eq("studioId", args.studioId)
+          .eq("platform", args.platform)
+          .eq("platformAccountId", args.platformAccountId),
       )
-      .filter((q) => q.eq(q.field("accountName"), args.accountName))
       .first();
 
     if (existing) {
-      // Update existing entry
+      // Update existing entry (e.g., refresh token rotation)
       await ctx.db.patch(existing._id, {
+        accountName: args.accountName, // In case they renamed their channel
         encryptedOAuthToken: args.encryptedOAuthToken,
-        refreshToken: args.refreshToken,
+        ...(args.refreshToken && {
+          refreshToken: args.refreshToken,
+        }), // Only update if new one exists
         tokenExpiresAt: args.tokenExpiresAt,
       });
       return existing._id;
@@ -160,9 +177,10 @@ export const storeOAuthToken = mutation({
 
     // Insert new entry
     const newId = await ctx.db.insert("social_keys", {
-      userId: args.userId,
+      studioId: args.studioId,
       platform: args.platform,
       accountName: args.accountName,
+      platformAccountId: args.platformAccountId,
       encryptedOAuthToken: args.encryptedOAuthToken,
       refreshToken: args.refreshToken,
       tokenExpiresAt: args.tokenExpiresAt,
@@ -172,42 +190,58 @@ export const storeOAuthToken = mutation({
   },
 });
 
-/**
- * Get a user document by Clerk ID
- */
-export const getUserByClerkId = query({
-  args: { clerkId: v.string() },
-  handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
-      .first();
-
-    return user || null;
-  },
-});
-
-/**
- * Remove a linked account
- * Called when user disconnects an account
- */
 export const removeLinkedAccount = mutation({
   args: { accountId: v.id("social_keys") },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    // Fetch the key to check which studio it belongs to
+    const key = await ctx.db.get(args.accountId);
+    if (!key) throw new Error("Account not found");
+
+    // Verify the user is an admin of the studio before letting them delete a key
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", identity.subject),
+      )
+      .filter((q) =>
+        q.eq(q.field("studioId"), key.studioId),
+      )
+      .first();
+
+    if (!membership || membership.role !== "admin") {
+      throw new Error(
+        "Unauthorized: Only Admins can remove linked accounts",
+      );
+    }
+
     await ctx.db.delete(args.accountId);
     return { success: true };
   },
 });
 
-/**
- * Reset onboarding flag (for "re-do onboarding" feature in settings)
- */
-export const resetOnboarding = mutation({
-  args: { userId: v.id("users") },
+// Requires the server secret to prevent abuse, since this exposes user data based on Clerk ID
+export const getUserByClerkId = query({
+  args: {
+    clerkId: v.string(),
+    serverSecret: v.string(), // Force the caller to provide the password
+  },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      hasCompletedOnboarding: false,
-    });
-    return await ctx.db.get(args.userId);
+    // Check if the password matches the Convex environment variable
+    if (
+      args.serverSecret !==
+      process.env.SERVER_TO_SERVER_SECRET
+    ) {
+      throw new Error("Unauthorized Server Access");
+    }
+
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) =>
+        q.eq("clerkId", args.clerkId),
+      )
+      .first();
   },
 });

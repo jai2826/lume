@@ -11,7 +11,9 @@
 import type * as auth from "../auth.js";
 import type * as files from "../files.js";
 import type * as hello from "../hello.js";
+import type * as lib_utils from "../lib/utils.js";
 import type * as shots from "../shots.js";
+import type * as studios from "../studios.js";
 
 import type {
   ApiFromModules,
@@ -23,7 +25,9 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   files: typeof files;
   hello: typeof hello;
+  "lib/utils": typeof lib_utils;
   shots: typeof shots;
+  studios: typeof studios;
 }>;
 
 /**

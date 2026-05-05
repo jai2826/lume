@@ -1,4 +1,4 @@
-import { ConvexClientProvider } from "@/app/_provider/ConvexClientProvider";
+import  ConvexClientProvider  from "@/app/_provider/ConvexClientProvider";
 import { JotaiProvider } from "@/app/_provider/JotaiProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 
@@ -8,7 +8,7 @@ export function MainProvider({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider afterSignOutUrl={"/"}>
+    <ClerkProvider unsafe_disableDevelopmentModeConsoleWarning  afterSignOutUrl={"/"}>
       <ConvexClientProvider>
         <JotaiProvider>{children}</JotaiProvider>;
       </ConvexClientProvider>

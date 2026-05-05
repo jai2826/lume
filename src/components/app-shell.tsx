@@ -1,9 +1,11 @@
-import { Show, UserButton } from "@clerk/nextjs";
+'use client';
+import { UserButton } from "@clerk/nextjs";
 import { Settings } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Authenticated, Unauthenticated } from "convex/react";
 
 export function AppShell({
   children,
@@ -40,7 +42,7 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
-            <Show when="signed-out">
+            <Unauthenticated>
               <Link
                 href="/sign-in"
                 className={cn(
@@ -61,9 +63,9 @@ export function AppShell({
                 )}>
                 Get started
               </Link>
-            </Show>
+            </Unauthenticated>
 
-            <Show when="signed-in">
+            <Authenticated>
               <Link
                 href="/settings"
                 className={cn(
@@ -77,7 +79,7 @@ export function AppShell({
               <div className="flex items-center">
                 <UserButton  />
               </div>
-            </Show>
+            </Authenticated>
           </div>
         </nav>
       </header>

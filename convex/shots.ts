@@ -1,7 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-import { shotInputsValidator, shotPlatformsValidator } from "./schema";
+import {
+  shotInputsValidator,
+  shotPlatformsValidator,
+} from "./schema";
+import { requireAuth } from "./lib/utils";
 
 const defaultPlatformEntry = () => ({
   status: "idle" as const,
@@ -30,13 +34,21 @@ export const createShot = mutation({
     title: v.optional(v.string()),
     inputs: shotInputsValidator,
     platforms: v.optional(shotPlatformsValidator),
+    studioId: v.id("studios"),
   },
-  handler: async (ctx, { title, inputs, platforms }) => {
+  handler: async (
+    ctx,
+    { title, inputs, platforms, studioId },
+  ) => {
+    const { clerkId } = await requireAuth(ctx);
+
     return await ctx.db.insert("shots", {
       title,
       inputs,
+      studioId,
+      createdBy: clerkId,
       platforms: platforms ?? {
-        twitter: defaultPlatformEntry(),
+        x: defaultPlatformEntry(),
         instagram: defaultPlatformEntry(),
         youtube: defaultPlatformEntry(),
         tiktok: defaultPlatformEntry(),

@@ -6,14 +6,26 @@ import { AppShell } from "@/components/app-shell";
 import { MainProvider } from "@/app/_provider/MainProvider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+import {
+  Inter,
+  Noto_Serif_Georgian as Georgia,
+  JetBrains_Mono,
+} from "next/font/google";
+import "./globals.css";
+
+const fontSans = Inter({
   subsets: ["latin"],
+  variable: "--font-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fontSerif = Georgia({
   subsets: ["latin"],
+  variable: "--font-serif",
+});
+
+const fontMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -31,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}>
+      className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} dark h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <MainProvider>
           <AppShell>{children}</AppShell>

@@ -18,10 +18,15 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 
-function shotDocToPreview(doc: Doc<"shots">): ShotPreviewData {
+function shotDocToPreview(doc: Doc<"shots">):  {
   return {
     title: doc.title,
-    inputs: doc.inputs,
+    inputs: {
+      ...doc.inputs,
+      images: doc.inputs.images ?? [],
+      videos: doc.inputs.videos ?? [],
+      audios: doc.inputs.audios ?? [],
+    },
     platforms: doc.platforms,
   };
 }
@@ -185,6 +190,7 @@ function PlatformPlaceholder({
 export function DashboardWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const slug = searchParams.get("slug");
   const shotQuery = searchParams.get("shot");
   const trimmed = shotQuery?.trim();
   const args =
@@ -197,7 +203,7 @@ export function DashboardWorkspace() {
   const isLoadingShot = shotDoc === undefined;
 
   const onShotCreated = (id: Id<"shots">) => {
-    router.replace(`/dashboard?shot=${id}`, { scroll: false });
+    router.replace(`/${slug}/dashboard?shot=${id}`, { scroll: false });
   };
 
   const platformsForCount: ShotPlatformEntry[] = shot
