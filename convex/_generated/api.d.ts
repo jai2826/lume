@@ -11,7 +11,9 @@
 import type * as auth from "../auth.js";
 import type * as files from "../files.js";
 import type * as hello from "../hello.js";
+import type * as http from "../http.js";
 import type * as lib_utils from "../lib/utils.js";
+import type * as secured_users from "../secured/users.js";
 import type * as shots from "../shots.js";
 import type * as studios from "../studios.js";
 
@@ -25,7 +27,9 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   files: typeof files;
   hello: typeof hello;
+  http: typeof http;
   "lib/utils": typeof lib_utils;
+  "secured/users": typeof secured_users;
   shots: typeof shots;
   studios: typeof studios;
 }>;

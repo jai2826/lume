@@ -26,7 +26,7 @@ export async function getAuthUserId(
 ) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    return [];
+    return null;
   }
   return { clerkId: identity.subject }; // This is the clerkId
 }

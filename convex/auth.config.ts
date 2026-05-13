@@ -1,8 +1,8 @@
 export default {
   providers: [
     {
-      domain: "https://valued-tuna-74.clerk.accounts.dev", 
-      applicationID: "convex",
+      domain: process.env.CLERK_FRONTEND_API_URL,
+      applicationID: 'convex',
     },
-  ]
-};
+  ],
+}

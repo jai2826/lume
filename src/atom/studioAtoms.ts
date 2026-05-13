@@ -1,7 +1,7 @@
 import { atomWithStorage } from "jotai/utils";
 
-// This atom automatically syncs with localStorage under the key "active-studio-id"
-export const activeStudioIdAtom = atomWithStorage<string | null>(
-  "active-studio-id",
-  null
-);
+// This atom automatically syncs with localStorage under the key "active-studio-slug"
+export const activeStudioAtom = atomWithStorage<{
+  studioId: string;
+  slug: string;
+} | null>("active-studio-slug", null);
