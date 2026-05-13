@@ -1,31 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
 import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import {
-  ChevronLeft,
-  Check,
-  Music2,
-  Ghost,
-  Settings as Cog,
-  Loader2,
+    Loader2,
+    Music2
 } from "lucide-react";
+import {
+    useRouter,
+    useSearchParams,
+} from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { api } from "../../../../convex/_generated/api";
 import { activeStudioAtom } from "@/atom/studioAtoms";
 import { Button } from "@/components/ui/button";
 import {
-  FaInstagram,
-  FaSnapchat,
-  FaXTwitter,
-  FaYoutube,
+    FaInstagram,
+    FaSnapchat,
+    FaXTwitter,
+    FaYoutube,
 } from "react-icons/fa6";
+import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 const STEPS = [
@@ -115,7 +111,7 @@ export default function OnboardingPage() {
   ) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+        <Loader2 className="h-10 w-10 animate-spin text-brand" />
       </div>
     );
   }
@@ -182,14 +178,14 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-5xl px-6 pt-10 pb-20">
-        <div className="mt-24 text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-foreground">
+      <div className="mx-auto max-w-6xl px-8 pt-12 pb-24">
+        <div className="mt-28 text-center">
+          <h1 className="text-6xl font-bold tracking-tight text-foreground">
             Connect {current.label}
           </h1>
         </div>
 
-        <div className="mx-auto mt-14 grid max-w-3xl gap-6 md:grid-cols-2">
+        <div className="mx-auto mt-16 grid max-w-4xl gap-8 md:grid-cols-2">
           {[current, STEPS[(step + 1) % STEPS.length]].map(
             (p, idx) => {
               const st =
@@ -200,16 +196,16 @@ export default function OnboardingPage() {
               return (
                 <div
                   key={p.key}
-                  className={`relative overflow-hidden rounded-3xl border bg-card p-7 transition-all ${isMain ? "border-black/10 shadow-soft scale-100 opacity-100" : "border-black/5 shadow-feather scale-95 opacity-60"}`}>
+                  className={`relative overflow-hidden rounded-3xl border bg-card p-9 transition-all ${isMain ? "border-black/10 shadow-soft scale-100 opacity-100" : "border-black/5 shadow-feather scale-95 opacity-60"}`}>
                   <div className="relative">
                     <div
-                      className="grid h-16 w-16 place-items-center rounded-2xl shadow-sm"
+                      className="grid h-20 w-20 place-items-center rounded-2xl shadow-sm"
                       style={{ background: p.color }}>
                       <p.Icon
-                        className={`h-7 w-7 text-white`}
+                        className={`h-9 w-9 text-white`}
                       />
                     </div>
-                    <h3 className="mt-4 text-2xl font-bold text-foreground">
+                    <h3 className="mt-5 text-3xl font-bold text-foreground">
                       {p.label}
                     </h3>
 

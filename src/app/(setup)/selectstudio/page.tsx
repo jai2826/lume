@@ -22,31 +22,31 @@ export default function StudioSelectPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Real Header with Clerk Auth */}
-      <header className="flex items-center justify-between border-b border-black/5 px-10 py-5 bg-background/80 backdrop-blur-md">
-        <LumeLogo size={34} />
-        <div className="flex items-center gap-5">
-          <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <HelpCircle className="h-4 w-4" /> Help
+      <header className="flex items-center justify-between border-b border-black/5 px-12 py-6 bg-background/80 backdrop-blur-md">
+        <LumeLogo size={40} />
+        <div className="flex items-center gap-6">
+          <button className="flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors">
+            <HelpCircle className="h-5 w-5" /> Help
           </button>
-          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+          <div className="h-11 w-11 rounded-full bg-muted flex items-center justify-center">
              <UserButton  />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 pt-24 pb-20 flex-1 w-full">
+      <main className="mx-auto max-w-7xl px-8 pt-28 pb-24 flex-1 w-full">
         <div className="text-center">
-          <h1 className="text-5xl font-bold tracking-tight md:text-6xl">Select a Studio</h1>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+          <h1 className="text-6xl font-bold tracking-tight md:text-7xl">Select a Studio</h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
             Choose a workspace to continue or create a new one to start a fresh project.
           </p>
         </div>
 
         {/* Loading State */}
         {studios === undefined && (
-          <div className="mt-24 flex flex-col items-center justify-center text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin text-brand" />
-            <p className="mt-4 text-sm">Loading your workspaces...</p>
+          <div className="mt-28 flex flex-col items-center justify-center text-muted-foreground">
+            <Loader2 className="h-10 w-10 animate-spin text-brand" />
+            <p className="mt-5 text-base">Loading your workspaces...</p>
           </div>
         )}
 

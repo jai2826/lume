@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"; // Assuming you have Shadcn's standard cn utility
+import Link from "next/link";
 
 interface LumeLogoProps {
   size?: number;
@@ -6,11 +7,11 @@ interface LumeLogoProps {
 }
 
 export function LumeLogo({
-  size = 32,
+  size = 40,
   className,
 }: LumeLogoProps) {
   return (
-    <div className={cn(className)}>
+    <Link href="/" className={cn(className)}>
       <div
         className="relative grid place-items-center shadow-glow"
         style={{
@@ -32,6 +33,6 @@ export function LumeLogo({
           }}
         />
       </div>
-    </div>
+    </Link>
   );
 }

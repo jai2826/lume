@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { generateFriendlySlug } from "@/lib/slug-generator";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RiResetLeftLine } from "react-icons/ri";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
@@ -50,9 +50,9 @@ export default function SetupPage() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-grid opacity-35"
         />
-        <div className="relative z-10 flex min-h-dvh items-center justify-center px-6 py-10">
-          <div className="flex items-center gap-3 rounded-full border border-border bg-card/90 px-5 py-3 text-sm text-muted-foreground shadow-soft backdrop-blur-md">
-            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-brand" />
+        <div className="relative z-10 flex min-h-dvh items-center justify-center px-6 py-12 sm:px-8">
+          <div className="flex items-center gap-4 rounded-full border border-border bg-card/90 px-6 py-4 text-base text-muted-foreground shadow-soft backdrop-blur-md">
+            <span className="h-3 w-3 animate-pulse rounded-full bg-brand" />
             Loading your studios...
           </div>
         </div>
@@ -107,31 +107,31 @@ export default function SetupPage() {
         className="pointer-events-none absolute inset-0 bg-grid opacity-35"
       />
 
-      <div className="relative z-10 flex min-h-dvh items-center justify-center px-6 py-10 sm:px-8">
-        <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-border/70 bg-card/90 shadow-soft backdrop-blur-md">
-          <div className="border-b border-border/70 px-6 py-6 sm:px-8">
-            <div className="inline-flex rounded-full border border-brand/15 bg-brand/10 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/75">
+      <div className="relative z-10 flex min-h-dvh items-center justify-center px-6 py-12 sm:px-8">
+        <div className="w-full max-w-3xl overflow-hidden rounded-[2.5rem] border border-border/70 bg-card/90 shadow-soft backdrop-blur-md">
+          <div className="border-b border-border/70 px-8 py-8 sm:px-10">
+            <div className="inline-flex rounded-full border border-brand/15 bg-brand/10 px-5 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-foreground/75">
               Workspace setup
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
               Create or join a studio
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[1rem]">
+            <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
               Set up a new workspace for your brand or enter
               an invite code to join an existing team.
             </p>
           </div>
 
-          <div className="px-6 py-6 sm:px-8 sm:py-8">
-            <div className="mb-8 flex gap-4 border-b border-border/70 pb-2">
+          <div className="px-8 py-8 sm:px-10 sm:py-10">
+            <div className="mb-10 flex gap-6 border-b border-border/70 pb-3">
               <button
                 onClick={() => setMode("create")}
-                className={`pb-2 text-base font-semibold transition-colors sm:text-lg ${mode === "create" ? "border-b-2 border-brand text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`pb-3 text-lg font-semibold transition-colors sm:text-xl ${mode === "create" ? "border-b-2 border-brand text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                 Create Studio
               </button>
               <button
                 onClick={() => setMode("join")}
-                className={`pb-2 text-base font-semibold transition-colors sm:text-lg ${mode === "join" ? "border-b-2 border-brand text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`pb-3 text-lg font-semibold transition-colors sm:text-xl ${mode === "join" ? "border-b-2 border-brand text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                 Join Studio
               </button>
             </div>

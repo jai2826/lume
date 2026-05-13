@@ -26,17 +26,13 @@ export default function MarketingNavbar({
 }: MarketingNavbarProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-black/5 bg-background/80 backdrop-blur-md">
-      <div className="flex items-center justify-between px-8 py-4">
-        <Link
-          href="/"
-          className="flex items-center gap-2">
-          <LumeLogo />
-        </Link>
+      <div className="flex items-center justify-between px-5 py-6">
+        <LumeLogo size={40} />
         <div>
           <AuthLoading>
             <Loader2Icon
               className="animate-spin text-muted-foreground"
-              size={20}
+              size={24}
             />
           </AuthLoading>
           <Unauthenticated>
@@ -47,8 +43,9 @@ export default function MarketingNavbar({
                     <Link href="/sign-up">
                       <Button
                         {...props}
-                        variant={"outline"}>
-                        <User2 size={20} />
+                        variant={"outline"}
+                        size="icon">
+                        <User2 size={24} />
                       </Button>
                     </Link>
                   );

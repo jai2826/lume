@@ -40,42 +40,42 @@ export default async function MarketingLandingPage() {
         className="pointer-events-none absolute inset-0 z-0 bg-grid opacity-35"
       />
 
-      <section className="relative z-[1] mx-auto flex w-full max-w-[1200px] flex-col px-5 pb-20 pt-12 sm:px-8 sm:pb-28 sm:pt-18 lg:pt-22">
-        <header className="rounded-[2rem] border border-border/70 bg-card/85 px-6 py-10 text-center shadow-soft backdrop-blur-md sm:px-10 sm:py-14 lg:px-14">
-          <span className="mx-auto inline-flex rounded-full border border-brand/20 bg-brand/10 px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/80 animate-in fade-in slide-in-from-bottom-3 duration-700">
+      <section className="relative z-[1] mx-auto flex w-full max-w-[1400px] flex-col px-6 pb-24 pt-14 sm:px-10 sm:pb-32 sm:pt-20 lg:pt-28">
+        <header className="rounded-[2.5rem] border border-border/70 bg-card/85 px-8 py-14 text-center shadow-soft backdrop-blur-md sm:px-12 sm:py-18 lg:px-16">
+          <span className="mx-auto inline-flex rounded-full border border-brand/20 bg-brand/10 px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.32em] text-foreground/80 animate-in fade-in slide-in-from-bottom-3 duration-700">
             Composer-native distribution
           </span>
 
-          <div className="mt-7 animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-150 fill-mode-backwards">
-            <h1 className="font-semibold leading-[0.96] tracking-[-0.03em] text-[clamp(2.2rem,8.1vw,4.9rem)] text-foreground sm:tracking-[-0.038em]">
+          <div className="mt-9 animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-150 fill-mode-backwards">
+            <h1 className="font-semibold leading-[0.96] tracking-[-0.03em] text-[clamp(2.5rem,8.1vw,5.2rem)] text-foreground sm:tracking-[-0.038em]">
               <span className="block mx-auto max-w-4xl">
                 One master cut.
                 <br />
                 Every channel, gallery-grade.
               </span>
             </h1>
-            <p className="mx-auto mt-7 max-w-3xl text-balance text-[1.05rem] leading-relaxed text-muted-foreground sm:mt-9 sm:text-[1.22rem]">
+            <p className="mx-auto mt-8 max-w-3xl text-balance text-[1.12rem] leading-relaxed text-muted-foreground sm:mt-10 sm:text-[1.3rem]">
               Lume is the creative OS for outbound:
               composition, Convex-backed live previews, and
               platform fidelity without the grunt work.
             </p>
 
-            <div className="mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-2.5">
+            <div className="mx-auto mt-10 flex max-w-2xl flex-wrap items-center justify-center gap-3">
               {PLATFORMS.map((platform) => (
                 <span
                   key={platform}
-                  className="rounded-full border border-border bg-background/95 px-3.5 py-1.5 text-sm font-medium text-foreground/80">
+                  className="rounded-full border border-border bg-background/95 px-4 py-2 text-base font-medium text-foreground/80">
                   {platform}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-backwards sm:flex-row sm:gap-6">
+          <div className="mt-12 flex flex-col items-center justify-center gap-5 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-backwards sm:flex-row sm:gap-7">
             <Link
               href={dashboardLink}
               className={cn(
-                "group relative inline-flex min-h-[3.5rem] items-center justify-center overflow-hidden rounded-full px-10 text-[1.02rem] font-semibold tracking-tight text-white transition-[transform,box-shadow,background-color] active:translate-y-[1px]",
+                "group relative inline-flex min-h-[4rem] items-center justify-center overflow-hidden rounded-full px-12 text-[1.1rem] font-semibold tracking-tight text-white transition-[transform,box-shadow,background-color] active:translate-y-[1px]",
                 "bg-brand shadow-glow hover:bg-brand-600",
               )}
               prefetch={false}>
@@ -87,19 +87,19 @@ export default async function MarketingLandingPage() {
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex min-h-[3.5rem] items-center justify-center rounded-full border border-border bg-background/90 px-8 text-[1.02rem] font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+              className="inline-flex min-h-[4rem] items-center justify-center rounded-full border border-border bg-background/90 px-10 text-[1.1rem] font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
               Open studio
             </Link>
           </div>
         </header>
       </section>
 
-      <section className="relative z-[1] mx-auto w-full max-w-[1320px] px-5 pb-24 sm:px-8 sm:pb-32">
-        <div className="mb-12 rounded-[1.6rem] border border-border/70 bg-card/80 px-6 py-8 text-center shadow-feather backdrop-blur sm:mb-16 sm:px-10 sm:py-10 sm:text-left">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-[2.1rem]">
+      <section className="relative z-[1] mx-auto w-full max-w-[1480px] px-6 pb-28 sm:px-10 sm:pb-36">
+        <div className="mb-14 rounded-[2rem] border border-border/70 bg-card/80 px-8 py-10 text-center shadow-feather backdrop-blur sm:mb-18 sm:px-12 sm:py-12 sm:text-left">
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl md:text-[2.3rem]">
             Platform fidelity, before you publish
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-[1.03rem] leading-relaxed text-muted-foreground sm:mx-0 sm:text-lg lg:max-w-3xl">
+          <p className="mx-auto mt-4 max-w-3xl text-[1.1rem] leading-relaxed text-muted-foreground sm:mx-0 sm:text-lg lg:max-w-4xl">
             Each surface below is mocked as if your shot
             already shipped, with familiar chrome,
             typography, and media constraints your team can
@@ -109,9 +109,9 @@ export default async function MarketingLandingPage() {
         {/* <LandingShowcaseBento /> */}
       </section>
 
-      <footer className="relative z-[1] border-t border-border/65 bg-background/70 py-14 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-7 px-5 text-center sm:px-8">
-          <p className="max-w-xl text-[1.03rem] leading-relaxed text-muted-foreground sm:text-lg">
+      <footer className="relative z-[1] border-t border-border/65 bg-background/70 py-16 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center gap-8 px-6 text-center sm:px-10">
+          <p className="max-w-2xl text-[1.1rem] leading-relaxed text-muted-foreground sm:text-lg">
             Writers, editors, operators converge on one
             Convex-backed shot canvas. Invite your desk in
             the next sprint.
@@ -119,7 +119,7 @@ export default async function MarketingLandingPage() {
           <Link
             href="/sign-up"
             className={cn(
-              "inline-flex min-h-[3.25rem] items-center justify-center rounded-full border border-transparent px-12 text-base font-semibold text-white transition-[transform,box-shadow,background-color] active:translate-y-px",
+              "inline-flex min-h-[3.75rem] items-center justify-center rounded-full border border-transparent px-14 text-lg font-semibold text-white transition-[transform,box-shadow,background-color] active:translate-y-px",
               "bg-brand shadow-glow hover:bg-brand-600",
             )}
             prefetch={false}>
