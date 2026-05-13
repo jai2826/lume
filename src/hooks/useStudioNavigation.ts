@@ -1,18 +1,41 @@
-import { activeStudioIdAtom } from "@/atom/studioAtoms";
+import { activeStudioAtom } from "@/atom/studioAtoms";
 import { useSetAtom } from "jotai";
-import { useRouter } from "next/navigation";; // Adjust path as needed
+import { useRouter } from "next/navigation";
+import { setLastActiveStudio } from "@/actions/studio"; // Import your Server Action
 
 export function useStudioNavigation() {
   const router = useRouter();
-  const setStudioId = useSetAtom(activeStudioIdAtom);
+  const setStudio = useSetAtom(activeStudioAtom);
 
-  const useSelectStudio = (studioId: string, slug: string) => {
-    // 1. Save the ID for the machine (Convex queries/mutations)
-    setStudioId(studioId);
+  const selectStudio = async (
+    studioId: string,
+    slug: string,
+  ) => {
+    try {
+      // 1. Tell Clerk this is the new default studio (Server Action)
+      // We await this so the middleware knows about it BEFORE we navigate
+      await setLastActiveStudio(slug);
+      console.log(studioId, slug)
+      // 2. Save the ID to Jotai for immediate local UI updates
+      setStudio({ studioId, slug });
 
-    // 2. Push the Slug for the user (The clean URL)
-    router.push(`/${slug}/dashboard`);
+      // 3. Push the user to the dashboard
+      router.push(`/${slug}/dashboard`);
+    } catch (error) {
+      console.error(
+        "Failed to save default studio to Clerk:",
+        error,
+      );
+
+      // Fallback: Even if Clerk fails, don't trap the user.
+      // Update local state and let them into the dashboard anyway.
+      setStudio({ studioId, slug });
+      router.push(`/${slug}/dashboard`);
+    }
+  };
+  const createStudio = async () => {
+    router.push("/join-studio");
   };
 
-  return { useSelectStudio };
+  return { selectStudio, createStudio };
 }

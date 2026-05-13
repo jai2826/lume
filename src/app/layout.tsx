@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 
-import { AppShell } from "@/components/app-shell";
-
-import { MainProvider } from "@/app/_provider/MainProvider";
+import { MainProvider } from "@/provider/MainProvider";
 import "./globals.css";
 
+import MarketingNavbar from "@/components/layout/Marketing-Navbar";
 import {
-  Inter,
   Noto_Serif_Georgian as Georgia,
+  Inter,
   JetBrains_Mono,
 } from "next/font/google";
 import "./globals.css";
@@ -46,7 +44,11 @@ export default function RootLayout({
       className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} dark h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <MainProvider>
-          <AppShell>{children}</AppShell>
+          <div className="relative flex min-h-full flex-col">
+            <main className="flex flex-1 flex-col">
+              {children}
+            </main>
+          </div>
         </MainProvider>
       </body>
     </html>

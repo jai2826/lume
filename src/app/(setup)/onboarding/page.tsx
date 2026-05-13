@@ -1,96 +1,265 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { useQuery } from "convex/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useAtomValue } from "jotai";
+import {
+  ChevronLeft,
+  Check,
+  Music2,
+  Ghost,
+  Settings as Cog,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
+
 import { api } from "../../../../convex/_generated/api";
-import { PlatformCard } from "./_components/PlatformCard"; // Make sure your path is correct
+import { activeStudioAtom } from "@/atom/studioAtoms";
+import { Button } from "@/components/ui/button";
+import {
+  FaInstagram,
+  FaSnapchat,
+  FaXTwitter,
+  FaYoutube,
+} from "react-icons/fa6";
+import { Id } from "../../../../convex/_generated/dataModel";
+
+const STEPS = [
+  {
+    key: "youtube",
+    label: "YouTube",
+    Icon: FaYoutube,
+    color: "#FF0000",
+    desc: "Publish Shorts & track channel analytics.",
+    perms: [
+      "Upload & publish videos",
+      "View channel analytics",
+    ],
+  },
+  {
+    key: "x",
+    label: "X (Twitter)",
+    Icon: FaXTwitter,
+    color: "#0F1419",
+    desc: "Draft threads & monitor conversations.",
+    perms: ["Post tweets & threads", "View analytics"],
+  },
+  {
+    key: "tiktok",
+    label: "TikTok",
+    Icon: Music2,
+    color: "#000000",
+    desc: "Schedule short-form videos & monitor trends.",
+    perms: ["Upload videos", "Read engagement metrics"],
+  },
+  {
+    key: "instagram",
+    label: "Instagram",
+    Icon: FaInstagram,
+    color:
+      "conic-gradient(from 45deg, #FEDA75, #FA7E1E, #D62976, #962FBF, #4F5BD5)",
+    desc: "Publish Reels & Stories.",
+    perms: ["Publish Reels", "Read insights"],
+  },
+  {
+    key: "snapchat",
+    label: "Snapchat",
+    Icon: FaSnapchat,
+    color: "#FFFC00",
+    desc: "Schedule Stories & Spotlight content.",
+    perms: ["Post Stories", "View analytics"],
+  },
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const sp = useSearchParams();
+  const [step, setStep] = useState(0);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [connectingPlatform, setConnectingPlatform] =
+    useState<string | null>(null);
 
-  const studios = useQuery(api.studios.getMyStudios);
-  const currentStudio = studios?.[0]; 
+  const jotaiStudio = useAtomValue(activeStudioAtom);
+  const urlStudioId = sp.get("studio");
+  const activeId = jotaiStudio?.studioId || urlStudioId;
 
+  const currentStudio = useQuery(api.studios.getMyStudios);
   const linkedAccounts = useQuery(
-    api.auth.getStudioLinkedAccounts, 
-    currentStudio ? { studioId: currentStudio._id } : "skip"
+    api.auth.getStudioLinkedAccounts,
+    {
+      studioId: activeId as Id<"studios">,
+    },
   );
 
-  // const completeOnboardingMutation = useMutation(api.auth.markOnboardingComplete);
-
-  const completeOnboarding = async () => {
-    setLoading(true);
-    try {
-      // await completeOnboardingMutation(); 
-      router.push("/dashboard");
-    } catch (error) {
-      toast.error("Failed to finish onboarding.");
-      setLoading(false);
+  useEffect(() => {
+    if (linkedAccounts) {
+      const firstUnconnectedIndex = STEPS.findIndex(
+        (s) => !(linkedAccounts[s.key]?.length > 0),
+      );
+      if (
+        firstUnconnectedIndex !== -1 &&
+        firstUnconnectedIndex > step
+      ) {
+        setStep(firstUnconnectedIndex);
+      }
     }
-  };
+  }, [linkedAccounts, step]);
 
-  const handleAddAccount = (platform: string) => {
-    if (!currentStudio) return toast.error("Studio not found.");
-
-    // Pass studioId as query parameter to OAuth auth endpoint
-    const authUrl = `/api/onboarding/${platform}/auth?studioId=${currentStudio._id}`;
-    window.location.href = authUrl;
-  };
-
-  if (studios === undefined) {
-    return <div className="min-h-screen bg-bg flex items-center justify-center">Loading...</div>;
+  if (
+    currentStudio === undefined ||
+    linkedAccounts === undefined
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+      </div>
+    );
   }
 
-  // Security Fallback: If they somehow got here without a studio, send them back to setup
-  if (studios.length === 0) {
-    router.push("/setup");
+  if (currentStudio === null || !activeId) {
+    router.push("/selectstudio");
     return null;
   }
 
+  const current = STEPS[step];
+  const isConnected =
+    (linkedAccounts![current.key]?.length ?? 0) > 0;
+
+  const handleConnect = (platformKey: string) => {
+    if (linkedAccounts![platformKey]?.length > 0) return;
+
+    setConnectingPlatform(platformKey);
+    const authUrl = `/api/onboarding/${platformKey}/auth?studioId=${activeId}`;
+
+    const width = 500,
+      height = 700;
+    const left = window.screen.width / 2 - width / 2,
+      top = window.screen.height / 2 - height / 2;
+
+    const popup = window.open(
+      authUrl,
+      "OAuthWindow",
+      `width=${width},height=${height},top=${top},left=${left}`,
+    );
+
+    if (!popup) {
+      toast.error("Pop-up blocked.");
+      setConnectingPlatform(null);
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (
+        event.data?.type === "OAUTH_SUCCESS" &&
+        event.data?.platform === platformKey
+      ) {
+        setConnectingPlatform(null);
+        toast.success(`${platformKey} connected!`);
+        window.removeEventListener(
+          "message",
+          handleMessage,
+        );
+      }
+    };
+    window.addEventListener("message", handleMessage);
+  };
+
+  const nextStep = () =>
+    step < STEPS.length - 1
+      ? setStep(step + 1)
+      : finishOnboarding();
+
+  const finishOnboarding = () => {
+    setIsFinalizing(true);
+    const studio = currentStudio.find(s => s._id === activeId) || currentStudio[0];
+    router.push(`/${studio.slug}/dashboard`);
+  };
+
   return (
-    <div className="min-h-screen bg-bg p-6 md:p-12">
-      <div className="max-w-5xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Connect {currentStudio!.name}</h1>
-          <p className="text-muted-foreground text-lg">
-            Link your accounts to automate publishing. <br/>
-            <span className="text-sm text-gray-500">(You can skip this and link them later from your Dashboard Settings).</span>
-          </p>
-        </header>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-5xl px-6 pt-10 pb-20">
+        <div className="mt-24 text-center">
+          <h1 className="text-5xl font-bold tracking-tight text-foreground">
+            Connect {current.label}
+          </h1>
+        </div>
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {(["instagram", "youtube", "x", "tiktok", "snapchat"] as const).map((platform) => (
-            <PlatformCard
-              key={platform}
-              platform={platform}
-              isLinked={(linkedAccounts?.[platform]?.length ?? 0) > 0}
-              linkedAccounts={linkedAccounts?.[platform] ?? []}
-              onAddAccount={() => handleAddAccount(platform)}
-              isLoading={loading || linkedAccounts === undefined}
-            />
-          ))}
-        </section>
+        <div className="mx-auto mt-14 grid max-w-3xl gap-6 md:grid-cols-2">
+          {[current, STEPS[(step + 1) % STEPS.length]].map(
+            (p, idx) => {
+              const st =
+                (linkedAccounts![p.key]?.length ?? 0) > 0
+                  ? "active"
+                  : "disconnected";
+              const isMain = idx === 0;
+              return (
+                <div
+                  key={p.key}
+                  className={`relative overflow-hidden rounded-3xl border bg-card p-7 transition-all ${isMain ? "border-black/10 shadow-soft scale-100 opacity-100" : "border-black/5 shadow-feather scale-95 opacity-60"}`}>
+                  <div className="relative">
+                    <div
+                      className="grid h-16 w-16 place-items-center rounded-2xl shadow-sm"
+                      style={{ background: p.color }}>
+                      <p.Icon
+                        className={`h-7 w-7 text-white`}
+                      />
+                    </div>
+                    <h3 className="mt-4 text-2xl font-bold text-foreground">
+                      {p.label}
+                    </h3>
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-8 border-t border-white/5 mt-12">
+                    {isMain && (
+                      <Button
+                        onClick={() =>
+                          isConnected
+                            ? nextStep()
+                            : handleConnect(p.key)
+                        }
+                        disabled={
+                          connectingPlatform === p.key
+                        }
+                        className="mt-5 h-11 w-full rounded-xl transition-all shadow-sm bg-foreground text-background">
+                        {connectingPlatform === p.key ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                            Connecting...
+                          </>
+                        ) : st === "active" ? (
+                          "Manage Connection"
+                        ) : (
+                          `Connect ${p.label}`
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            },
+          )}
+        </div>
+
+        <div className="mt-14 flex justify-center">
           <Button
-            variant="ghost"
-            onClick={completeOnboarding}
-            disabled={loading}
-            className="text-gray-400 hover:text-white h-12 px-8"
-          >
-            Skip for now
-          </Button>
-
-          <Button
-            onClick={completeOnboarding}
-            disabled={loading}
-            className="bg-white text-black hover:bg-gray-200 font-bold h-12 px-10 rounded-full"
-          >
-            {loading ? "Finalizing..." : "Enter Command Center"}
+            onClick={nextStep}
+            disabled={isFinalizing}
+            className="h-12 rounded-full bg-brand px-10 font-semibold text-white shadow-glow hover:bg-brand-600 transition-all">
+            {isFinalizing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                Finalizing...
+              </>
+            ) : step === STEPS.length - 1 ? (
+              "Complete Setup ✓"
+            ) : isConnected ? (
+              "Continue to Next Platform →"
+            ) : (
+              "Skip Platform →"
+            )}
           </Button>
         </div>
       </div>
