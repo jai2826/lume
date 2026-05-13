@@ -29,11 +29,11 @@ export default async function SettingsPage() {
   const accounts = await convex.query(api.auth.getUserLinkedAccounts, { clerkId: userId });
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Settings</h1>
-      <p className="text-sm text-muted mb-6">Manage your connected Social Studio accounts.</p>
+    <div className="p-12 max-w-5xl mx-auto">
+      <h1 className="text-4xl font-bold mb-6">Settings</h1>
+      <p className="text-base text-muted-foreground mb-8">Manage your connected Social Studio accounts.</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <AccountList platform="instagram" accounts={accounts!.instagram} Icon={FaInstagram} />
         <AccountList platform="youtube" accounts={accounts!.youtube} Icon={FaYoutube} />
         <AccountList platform="x" accounts={accounts!.x} Icon={FaX} />
@@ -41,8 +41,8 @@ export default async function SettingsPage() {
         <AccountList platform="snapchat" accounts={accounts!.snapchat} Icon={FaSnapchat} />
       </div>
 
-      <div className="mt-8">
-        <Link href="/dashboard" className="text-sm text-muted hover:underline">Back to Dashboard</Link>
+      <div className="mt-10">
+        <Link href="/dashboard" className="text-base text-muted-foreground hover:text-foreground hover:underline transition-colors">Back to Dashboard</Link>
       </div>
     </div>
   );
@@ -50,24 +50,25 @@ export default async function SettingsPage() {
 
 function AccountList({ platform, accounts, Icon }: { platform: string; accounts: Array<{ accountName: string; _id: string }>; Icon: any }) {
   return (
-    <div className="rounded-lg bg-card p-4 border border-muted">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="p-2 rounded bg-muted/10"><Icon className="w-5 h-5" /></div>
-        <h3 className="font-semibold text-sm capitalize">{platform}</h3>
+    <div className="rounded-lg bg-card p-6 border border-border/70">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="p-3 rounded bg-muted/10"><Icon className="w-6 h-6" /></div>
+        <h3 className="font-semibold text-base capitalize">{platform}</h3>
       </div>
 
       {accounts && accounts.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {accounts.map((a) => (
             <li key={a._id} className="flex items-center justify-between">
-              <span className="text-sm text-foreground">@{a.accountName}</span>
-              <span className="text-xs text-muted">Connected</span>
+              <span className="text-base text-foreground">@{a.accountName}</span>
+              <span className="text-sm text-muted-foreground">Connected</span>
             </li>
           ))}
         </ul>
       ) : (
-        <div className="text-sm text-muted">No accounts connected</div>
+        <div className="text-base text-muted-foreground">No accounts connected</div>
       )}
     </div>
   );
+};
 }
