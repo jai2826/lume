@@ -26,13 +26,13 @@ export default function MarketingNavbar({
 }: MarketingNavbarProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-black/5 bg-background/80 backdrop-blur-md">
-      <div className="flex items-center justify-between px-5 py-6">
-        <LumeLogo size={40} />
+      <div className="flex items-center justify-between px-5 py-4">
+        <LumeLogo size={48} />
         <div>
           <AuthLoading>
             <Loader2Icon
               className="animate-spin text-muted-foreground"
-              size={24}
+              size={40}
             />
           </AuthLoading>
           <Unauthenticated>
@@ -44,8 +44,9 @@ export default function MarketingNavbar({
                       <Button
                         {...props}
                         variant={"outline"}
-                        size="icon">
-                        <User2 size={24} />
+                        size={"icon-lg"}
+                        >
+                        <User2 size={60} />
                       </Button>
                     </Link>
                   );
@@ -57,7 +58,15 @@ export default function MarketingNavbar({
             </Tooltip>
           </Unauthenticated>
           <Authenticated>
-            <UserButton />
+            
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "w-10! h-10!",
+                  avatarImage: "w-10! h-10!",
+                },
+              }}
+            />
           </Authenticated>
         </div>
       </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { api } from "@/convex/_generated/api";
 import { useConvex } from "convex/react";
 import { useEffect, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import { Id } from "../../convex/_generated/dataModel";
 
 export interface LinkedAccounts {
   instagram: Array<{ accountName: string; _id: string }>;
@@ -40,10 +41,19 @@ export function useOnboarding(userId: string | null): UseOnboardingReturn {
 
     try {
       setError(null);
-      const accounts = await convex.query(api.auth.getUserLinkedAccounts, {
-        userId: userId as any,
+      const accounts = await convex.query(api.auth.getStudioLinkedAccounts, {
+        studioId: userId as Id<"studios">,
       });
-      setLinkedAccounts(accounts);
+
+      const normalized: LinkedAccounts = {
+        instagram: accounts?.instagram ?? [],
+        youtube: accounts?.youtube ?? [],
+        x: accounts?.x ?? [],
+        tiktok: accounts?.tiktok ?? [],
+        snapchat: accounts?.snapchat ?? [],
+      };
+
+      setLinkedAccounts(normalized);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch accounts";
       setError(message);
@@ -64,9 +74,6 @@ export function useOnboarding(userId: string | null): UseOnboardingReturn {
 
     setLoading(true);
     try {
-      await convex.mutation(api.auth.markOnboardingComplete, {
-        userId: userId as any,
-      });
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to complete onboarding";
@@ -91,7 +98,8 @@ export function useOnboarding(userId: string | null): UseOnboardingReturn {
       (linkedAccounts.instagram.length > 0 ||
         linkedAccounts.youtube.length > 0 ||
         linkedAccounts.x.length > 0 ||
-        linkedAccounts.tiktok.length > 0);
+        linkedAccounts.tiktok.length > 0 ||
+        linkedAccounts.snapchat.length > 0);
 
     if (!hasAccounts) {
       setError("Please link at least one account to continue");
@@ -100,9 +108,6 @@ export function useOnboarding(userId: string | null): UseOnboardingReturn {
 
     setLoading(true);
     try {
-      await convex.mutation(api.auth.markOnboardingComplete, {
-        userId: userId as any,
-      });
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to complete onboarding";

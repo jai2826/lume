@@ -117,7 +117,7 @@ export default function OnboardingPage() {
   }
 
   if (currentStudio === null || !activeId) {
-    router.push("/selectstudio");
+    router.push("/activestudios");
     return null;
   }
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 // import { LandingShowcaseBento } from "@/components/marketing/landing-showcase-bento";
 import { cn } from "@/lib/utils";
 import { currentUser } from "@clerk/nextjs/server";
+import GetStartedButton from "@/app/(marketing)/_components/get-started-button";
+import OpenStudioButton from "@/app/(marketing)/_components/open-studio-button";
 
 export const metadata: Metadata = {
   title: "Lume — Distribution for creators who curate",
@@ -25,9 +27,6 @@ export default async function MarketingLandingPage() {
     (user?.publicMetadata
       ?.lastActiveStudioSlug as string) ?? "";
 
-  const dashboardLink = slug
-    ? `/${slug}/dashboard`
-    : "/dashboard";
 
   return (
     <div className="relative flex flex-1 flex-col overflow-x-hidden bg-background">
@@ -40,7 +39,7 @@ export default async function MarketingLandingPage() {
         className="pointer-events-none absolute inset-0 z-0 bg-grid opacity-35"
       />
 
-      <section className="relative z-[1] mx-auto flex w-full max-w-[1400px] flex-col px-6 pb-24 pt-14 sm:px-10 sm:pb-32 sm:pt-20 lg:pt-28">
+      <section className="relative z-[1] mx-auto flex w-full max-w-[1400px] flex-col px-6 pb-24 pt-14 ">
         <header className="rounded-[2.5rem] border border-border/70 bg-card/85 px-8 py-14 text-center shadow-soft backdrop-blur-md sm:px-12 sm:py-18 lg:px-16">
           <span className="mx-auto inline-flex rounded-full border border-brand/20 bg-brand/10 px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.32em] text-foreground/80 animate-in fade-in slide-in-from-bottom-3 duration-700">
             Composer-native distribution
@@ -72,24 +71,8 @@ export default async function MarketingLandingPage() {
           </div>
 
           <div className="mt-12 flex flex-col items-center justify-center gap-5 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-backwards sm:flex-row sm:gap-7">
-            <Link
-              href={dashboardLink}
-              className={cn(
-                "group relative inline-flex min-h-[4rem] items-center justify-center overflow-hidden rounded-full px-12 text-[1.1rem] font-semibold tracking-tight text-white transition-[transform,box-shadow,background-color] active:translate-y-[1px]",
-                "bg-brand shadow-glow hover:bg-brand-600",
-              )}
-              prefetch={false}>
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-x-[-40%] top-[-60%] h-[160%] translate-y-full bg-gradient-to-br from-transparent via-white/35 to-transparent opacity-65 blur-2xl transition-transform duration-700 group-hover:translate-y-[18%]"
-              />
-              <span className="relative">Get started</span>
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex min-h-[4rem] items-center justify-center rounded-full border border-border bg-background/90 px-10 text-[1.1rem] font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
-              Open studio
-            </Link>
+            <GetStartedButton />
+            <OpenStudioButton />
           </div>
         </header>
       </section>

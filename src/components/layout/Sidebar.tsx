@@ -73,35 +73,7 @@ export default function Sidebar() {
         <StudioSwitcher />
       </div>
 
-      <nav className="flex-1 space-y-8 px-4 py-6 overflow-y-auto scrollbar-thin">
-        {/* {NAV.map((g) => (
-          <div key={g.group}>
-            <div className="px-3 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground/80">
-              {g.group}
-            </div>
-            <div className="mt-2 space-y-1">
-              {g.items.map((it) => {
-                // Safely handle missing slugs during initial render
-                const safeSlug = slug || 'studio'; 
-                const href = `/${safeSlug}/${it.href}`;
-                const active = pathname === href || pathname?.startsWith(href + '/');
-                const Icon = it.icon;
-                
-                return (
-                  <Link key={it.href} href={href}
-                    className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all
-                      ${active ? 'bg-brand-50 text-brand font-medium' : 'text-foreground/80 hover:bg-accent'}`}>
-                    <Icon className={`h-[18px] w-[18px] ${active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground'}`} />
-                    <span>{it.label}</span>
-                    {it.accent && !active && <Sparkles className="ml-auto h-3.5 w-3.5 text-brand/70" />}
-                    {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-brand" />}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))} */}
-      </nav>
+      <nav className="flex-1 space-y-8 px-4 py-6 overflow-y-auto scrollbar-thin"></nav>
 
       {/* 2. Real User Profile Section */}
       <div className="m-4 flex items-center gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-feather">

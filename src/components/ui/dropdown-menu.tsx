@@ -248,7 +248,7 @@ function DropdownMenuRadioItem({
         data-slot="dropdown-menu-radio-item-indicator">
         <MenuPrimitive.RadioItemIndicator>
           {/* EDIT: Edited check icon with brand color for better visibility in the studio switcher */}
-          <CheckIcon className="text-brand" />
+          <CheckIcon />
         </MenuPrimitive.RadioItemIndicator>
       </span>
       {children}

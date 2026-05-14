@@ -12,7 +12,7 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 export async function POST(request: NextRequest) {
   try {
     // SECURITY: Get authenticated user from Clerk - cannot be forged
-    const { userId: clerkUserId } = await auth();
+    const { userId: clerkUserId, getToken } = await auth();
     
     if (!clerkUserId) {
       return NextResponse.json(
@@ -20,6 +20,16 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const convexToken = await getToken({ template: "convex" });
+    if (!convexToken) {
+      return NextResponse.json(
+        { error: "Unauthorized - missing Convex auth token" },
+        { status: 401 }
+      );
+    }
+
+    convex.setAuth(convexToken);
 
     const { platform, accountName, studioId, platformAccountId } = await request.json();
 

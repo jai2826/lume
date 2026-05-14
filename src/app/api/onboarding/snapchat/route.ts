@@ -1,10 +1,6 @@
-import { encryptToken } from '@/lib/encryption';
 import { auth } from '@clerk/nextjs/server';
-import { ConvexHttpClient } from 'convex/browser';
 import { NextRequest, NextResponse } from 'next/server';
-import { api } from '../../../../../convex/_generated/api';
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+import { saveSocialTokenToConvex } from '../../../../lib/save-social-util';
 
 /**
  * Snapchat OAuth Callback Endpoint
@@ -12,7 +8,7 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
  * SECURITY: Validates CSRF state token and uses authenticated user context
  */
 export async function GET(request: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return NextResponse.redirect(
       new URL('/onboarding?error=snapchat&message=Unauthorized', request.url)
@@ -56,13 +52,6 @@ export async function GET(request: NextRequest) {
   if (!code) {
     return NextResponse.redirect(
       new URL('/onboarding?error=snapchat&message=Missing authorization code', request.url)
-    );
-  }
-
-  const encryptionKey = process.env.ENCRYPTION_KEY;
-  if (!encryptionKey) {
-    return NextResponse.redirect(
-      new URL('/onboarding?error=snapchat&message=Missing encryption key', request.url)
     );
   }
 
@@ -144,15 +133,27 @@ export async function GET(request: NextRequest) {
       // Continue with default values
     }
 
-    // Store OAuth token in the studio using storeOAuthToken
-    await convex.mutation(api.auth.storeOAuthToken, {
-      studioId: studioId as any, // Type will be properly handled by Convex
+    const convexToken = await getToken({
+      template: 'convex',
+    });
+
+    if (!convexToken) {
+      return NextResponse.redirect(
+        new URL('/onboarding?error=snapchat&message=Missing Convex auth token', request.url)
+      );
+    }
+
+    await saveSocialTokenToConvex({
+      convexToken,
+      studioId,
       platform: 'snapchat',
       accountName,
-      platformAccountId, // Use the Snapchat ID
-      encryptedOAuthToken: encryptToken(accessToken, encryptionKey),
+      platformAccountId,
+      rawAccessToken: accessToken,
       refreshToken: tokens.refresh_token,
-      tokenExpiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
+      tokenExpiresAt: tokens.expires_in
+        ? Date.now() + tokens.expires_in * 1000
+        : undefined,
     });
 
     // SECURITY: Clear the CSRF state and studioId cookies after successful validation

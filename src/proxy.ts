@@ -18,25 +18,18 @@ const isPublicRoute = createRouteMatcher([
   "/api/auth/x/callback",
   "/api/auth/snapchat/callback",
   "/api/webhooks/clerk",
-]);
-const isPrivateRoute = createRouteMatcher([
-  "/selectstudio(.*)",
-  "/joinstudio(.*)",
-  "/onboarding(.*)",
-  "/studio(.*)",
+  "/api/onboarding(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  const url = request.nextUrl.pathname;
   const { userId, redirectToSignIn } = await auth();
 
-  // 1. Core Security: Bounce unauthenticated users trying to access private routes
-  if (isPrivateRoute(request)) {
-    if (!userId) return redirectToSignIn();
+  // Guard every non-public, non-auth route.
+  if (!isPublicRoute(request) && !isAuthRoute(request)) {
+    if (!userId) {
+      return redirectToSignIn();
+    }
   }
-
-  // 2. Logged-In User Routing Logic
-  
 
   return NextResponse.next();
 });

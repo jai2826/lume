@@ -1,11 +1,11 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
 
-import {
-  shotInputsValidator,
-  shotPlatformsValidator,
-} from "./schema";
 import { requireAuth } from "./lib/utils";
+import {
+    shotInputsValidator,
+    shotPlatformsValidator,
+} from "./schema";
 
 const defaultPlatformEntry = () => ({
   status: "idle" as const,
@@ -17,15 +17,45 @@ const defaultPlatformEntry = () => ({
 export const dashboardShot = query({
   args: { shotId: v.optional(v.id("shots")) },
   handler: async (ctx, { shotId }) => {
+    const { userSession } = await requireAuth(ctx);
+
+    const memberships = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", userSession.subject),
+      )
+      .collect();
+
+    const allowedStudioIds = new Set(
+      memberships.map((membership) => membership.studioId),
+    );
+
     if (shotId) {
       const doc = await ctx.db.get(shotId);
-      return doc ?? null;
+      if (!doc || !allowedStudioIds.has(doc.studioId)) {
+        return null;
+      }
+      return doc;
     }
-    const all = await ctx.db.query("shots").collect();
-    if (all.length === 0) return null;
-    return all.reduce((newest, s) =>
-      s._creationTime > newest._creationTime ? s : newest,
-    );
+
+    let latestShot: Awaited<ReturnType<typeof ctx.db.get>> | null = null;
+
+    for (const membership of memberships) {
+      const shots = await ctx.db
+        .query("shots")
+        .withIndex("by_studio", (q) =>
+          q.eq("studioId", membership.studioId),
+        )
+        .collect();
+
+      for (const shot of shots) {
+        if (!latestShot || shot._creationTime > latestShot._creationTime) {
+          latestShot = shot;
+        }
+      }
+    }
+
+    return latestShot;
   },
 });
 
@@ -40,13 +70,25 @@ export const createShot = mutation({
     ctx,
     { title, inputs, platforms, studioId },
   ) => {
-    const { clerkId } = await requireAuth(ctx);
+    const { userSession } = await requireAuth(ctx);
+
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", userSession.subject),
+      )
+      .filter((q) => q.eq(q.field("studioId"), studioId))
+      .first();
+
+    if (!membership) {
+      throw new Error("Unauthorized: Not a member of this studio");
+    }
 
     return await ctx.db.insert("shots", {
       title,
       inputs,
       studioId,
-      createdBy: clerkId,
+      createdBy: userSession.subject,
       platforms: platforms ?? {
         x: defaultPlatformEntry(),
         instagram: defaultPlatformEntry(),
