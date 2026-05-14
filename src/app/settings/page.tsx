@@ -1,65 +1,145 @@
-import { api } from "../../..//convex/_generated/api";
-import { auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
+"use client";
+
+import { useQuery } from "convex/react";
+import { useAtomValue } from "jotai";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { FaInstagram, FaSnapchat, FaTiktok, FaX, FaYoutube } from "react-icons/fa6";
+import type { ComponentType } from "react";
+import {
+    FaInstagram,
+    FaSnapchat,
+    FaTiktok,
+    FaX,
+    FaYoutube,
+} from "react-icons/fa6";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+import { activeStudioAtom } from "@/atom/studioAtoms";
+import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 
-export default async function SettingsPage() {
-  const { userId } = await auth();
-  if (!userId) return redirect("/");
+type Platform = "instagram" | "youtube" | "x" | "tiktok" | "snapchat";
 
-  // Get convex user by clerkId
-  const convexUser = await convex.query(api.auth.getUserByClerkId, { clerkId: userId });
-  if (!convexUser) {
-    // Ensure user exists by creating/updating
-    const created = await convex.mutation(api.auth.createOrUpdateUser, { clerkId: userId });
-    if (!created) return redirect("/");
-  }
+const ICONS: Record<Platform, ComponentType<{ className?: string }>> = {
+  instagram: FaInstagram,
+  youtube: FaYoutube,
+  x: FaX,
+  tiktok: FaTiktok,
+  snapchat: FaSnapchat,
+};
 
-  const userDoc = convexUser || (await convex.query(api.auth.getUserByClerkId, { clerkId: userId }));
-  const userConvexId = userDoc?._id;
+export default function SettingsPage() {
+  const activeStudio = useAtomValue(activeStudioAtom);
+  const studioId = activeStudio?.studioId;
 
-  if (!userConvexId) return (
-    <div className="p-8">No user found.</div>
+  const accounts = useQuery(
+    api.auth.getStudioLinkedAccounts,
+    studioId
+      ? { studioId: studioId as Id<"studios"> }
+      : "skip",
   );
 
-  const accounts = await convex.query(api.auth.getUserLinkedAccounts, { clerkId: userId });
+  if (!studioId) {
+    return (
+      <div className="mx-auto max-w-5xl p-12">
+        <h1 className="mb-4 text-4xl font-bold">Settings</h1>
+        <p className="text-muted-foreground">
+          Select an active studio before managing connected accounts.
+        </p>
+        <Link
+          href="/activestudios"
+          className="mt-6 inline-block text-base text-muted-foreground transition-colors hover:text-foreground hover:underline"
+        >
+          Go to active studios
+        </Link>
+      </div>
+    );
+  }
+
+  if (accounts === undefined) {
+    return (
+      <div className="mx-auto max-w-5xl p-12">
+        <h1 className="mb-4 text-4xl font-bold">Settings</h1>
+        <p className="text-muted-foreground">Loading connected accounts...</p>
+      </div>
+    );
+  }
+
+  if (accounts === null) {
+    return (
+      <div className="mx-auto max-w-5xl p-12">
+        <h1 className="mb-4 text-4xl font-bold">Settings</h1>
+        <p className="text-muted-foreground">
+          Unable to load account connections for this studio.
+        </p>
+      </div>
+    );
+  }
+
+  const platforms: Platform[] = [
+    "instagram",
+    "youtube",
+    "x",
+    "tiktok",
+    "snapchat",
+  ];
 
   return (
-    <div className="p-12 max-w-5xl mx-auto">
-      <h1 className="text-4xl font-bold mb-6">Settings</h1>
-      <p className="text-base text-muted-foreground mb-8">Manage your connected Social Studio accounts.</p>
+    <div className="mx-auto max-w-5xl p-12">
+      <h1 className="mb-6 text-4xl font-bold">Settings</h1>
+      <p className="mb-8 text-base text-muted-foreground">
+        Manage connected social accounts for the active studio.
+      </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <AccountList platform="instagram" accounts={accounts!.instagram} Icon={FaInstagram} />
-        <AccountList platform="youtube" accounts={accounts!.youtube} Icon={FaYoutube} />
-        <AccountList platform="x" accounts={accounts!.x} Icon={FaX} />
-        <AccountList platform="tiktok" accounts={accounts!.tiktok} Icon={FaTiktok} />
-        <AccountList platform="snapchat" accounts={accounts!.snapchat} Icon={FaSnapchat} />
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {platforms.map((platform) => {
+          const Icon = ICONS[platform];
+          return (
+            <AccountList
+              key={platform}
+              platform={platform}
+              accounts={accounts[platform]}
+              Icon={Icon}
+            />
+          );
+        })}
       </div>
 
       <div className="mt-10">
-        <Link href="/dashboard" className="text-base text-muted-foreground hover:text-foreground hover:underline transition-colors">Back to Dashboard</Link>
+        <Link
+          href={`/${activeStudio.slug}/dashboard`}
+          className="text-base text-muted-foreground transition-colors hover:text-foreground hover:underline"
+        >
+          Back to dashboard
+        </Link>
       </div>
     </div>
   );
 }
 
-function AccountList({ platform, accounts, Icon }: { platform: string; accounts: Array<{ accountName: string; _id: string }>; Icon: any }) {
+function AccountList({
+  platform,
+  accounts,
+  Icon,
+}: {
+  platform: Platform;
+  accounts: Array<{ accountName: string; _id: string }>;
+  Icon: ComponentType<{ className?: string }>;
+}) {
   return (
-    <div className="rounded-lg bg-card p-6 border border-border/70">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="p-3 rounded bg-muted/10"><Icon className="w-6 h-6" /></div>
-        <h3 className="font-semibold text-base capitalize">{platform}</h3>
+    <div className="rounded-lg border border-border/70 bg-card p-6">
+      <div className="mb-4 flex items-center gap-4">
+        <div className="rounded bg-muted/10 p-3">
+          <Icon className="h-6 w-6" />
+        </div>
+        <h3 className="text-base font-semibold capitalize">{platform}</h3>
       </div>
 
-      {accounts && accounts.length > 0 ? (
+      {accounts.length > 0 ? (
         <ul className="space-y-3">
           {accounts.map((a) => (
-            <li key={a._id} className="flex items-center justify-between">
+            <li
+              key={a._id}
+              className="flex items-center justify-between"
+            >
               <span className="text-base text-foreground">@{a.accountName}</span>
               <span className="text-sm text-muted-foreground">Connected</span>
             </li>
@@ -70,5 +150,4 @@ function AccountList({ platform, accounts, Icon }: { platform: string; accounts:
       )}
     </div>
   );
-};
 }

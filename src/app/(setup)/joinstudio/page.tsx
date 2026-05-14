@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useStudioNavigation } from "@/hooks/useStudioNavigation";
 import { generateFriendlySlug } from "@/lib/slug-generator";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,7 @@ export default function SetupPage() {
   const [mode, setMode] = useState<"create" | "join">(
     "create",
   );
+  const { selectStudio } = useStudioNavigation();
 
   // Form State
   const [studioName, setStudioName] = useState("");
@@ -23,21 +25,7 @@ export default function SetupPage() {
 
   const studios = useQuery(api.studios.getMyStudios);
   const createStudio = useMutation(api.studios.create);
-  const joinStudio = useMutation(api.studios.join);
-
-  // useEffect(() => {
-  //   if (userEditedSlug) return;
-  //   if (!studioName || studioName.trim().length === 0) {
-  //     setSlug("");
-  //     return;
-  //   }
-
-  //   const t = setTimeout(() => {
-  //     setSlug(generateFriendlySlug());
-  //   }, 2000);
-
-  //   return () => clearTimeout(t);
-  // }, [studioName]);
+  const joinStudio = useMutation(api.studios.join); // now creates a join request
 
   if (studios === undefined) {
     return (
@@ -65,12 +53,23 @@ export default function SetupPage() {
       return toast.error("Name and Link are required.");
     setLoading(true);
     try {
-      await createStudio({ name: studioName, slug });
+      const newStudio = await createStudio({
+        name: studioName,
+        slug,
+      });
       toast.success("Studio created!");
-      // Send Admins to the Social Linking page
-      router.push("/onboarding");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to create studio.");
+      await selectStudio(
+        newStudio.studioId,
+        newStudio.slug,
+      );
+      
+      router.push(`/${newStudio.slug}/onboarding`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create studio.",
+      );
       setLoading(false);
     }
   };
@@ -85,15 +84,21 @@ export default function SetupPage() {
 
     setLoading(true);
     try {
-      await joinStudio({
-        inviteCode: inviteCode.toLowerCase(),
-      });
-      toast.success("Successfully joined studio!");
-      router.push("/dashboard");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to join studio.");
+      await joinStudio({ inviteCode: inviteCode.toUpperCase() });
+      toast.success("Join request sent — wait for owner approval.");
+      setInviteCode("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to join studio.",
+      );
       setLoading(false);
     }
+  };
+
+  const handleOpenActiveStudios = () => {
+    router.push("/activestudios");
   };
 
   return (
@@ -110,16 +115,27 @@ export default function SetupPage() {
       <div className="relative z-10 flex min-h-dvh items-center justify-center px-6 py-12 sm:px-8">
         <div className="w-full max-w-3xl overflow-hidden rounded-[2.5rem] border border-border/70 bg-card/90 shadow-soft backdrop-blur-md">
           <div className="border-b border-border/70 px-8 py-8 sm:px-10">
-            <div className="inline-flex rounded-full border border-brand/15 bg-brand/10 px-5 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-foreground/75">
-              Workspace setup
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="inline-flex rounded-full border border-brand/15 bg-brand/10 px-5 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-foreground/75">
+                  Workspace setup
+                </div>
+                <h1 className="mt-6 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                  Create or join a studio
+                </h1>
+                <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
+                  Set up a new workspace for your brand or enter
+                  an invite code to join an existing team.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="h-11 rounded-full border-border/70 bg-background/80 px-5 shadow-feather"
+                onClick={handleOpenActiveStudios}
+              >
+                View active studios
+              </Button>
             </div>
-            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-              Create or join a studio
-            </h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Set up a new workspace for your brand or enter
-              an invite code to join an existing team.
-            </p>
           </div>
 
           <div className="px-8 py-8 sm:px-10 sm:py-10">

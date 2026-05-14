@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-import { NextResponse } from "next/server";
 
 /**
  * ==========================================
@@ -157,7 +156,22 @@ export const storeOAuthToken = mutation({
       throw new Error("Unauthorized: Invalid or missing Convex token.");
     }
 
-    // 2. Check if account already exists using the precise compound index
+    // 2. Verify the caller belongs to the target studio
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", identity.subject),
+      )
+      .filter((q) =>
+        q.eq(q.field("studioId"), args.studioId),
+      )
+      .first();
+
+    if (!membership) {
+      throw new Error("Unauthorized: Not a member of this studio");
+    }
+
+    // 3. Check if account already exists using the precise compound index
     const existing = await ctx.db
       .query("social_keys")
       .withIndex("by_studio_platform_account", (q) =>
@@ -169,7 +183,7 @@ export const storeOAuthToken = mutation({
       .first();
 
     if (existing) {
-      // 3. Update existing entry (e.g., refresh token rotation)
+      // 4. Update existing entry (e.g., refresh token rotation)
       await ctx.db.patch(existing._id, {
         accountName: args.accountName, 
         encryptedOAuthToken: args.encryptedOAuthToken,
@@ -181,7 +195,7 @@ export const storeOAuthToken = mutation({
       return existing._id;
     }
 
-    // 4. Insert new entry
+    // 5. Insert new entry
     const newId = await ctx.db.insert("social_keys", {
       studioId: args.studioId,
       platform: args.platform,

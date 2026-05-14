@@ -46,7 +46,7 @@ export default function NotFoundPage() {
               </Button>
             </Link>
             <Link
-              href="/selectstudio"
+              href="/activestudios"
               className="flex">
               <Button
                 variant="outline"

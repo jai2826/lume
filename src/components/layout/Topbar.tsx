@@ -1,12 +1,20 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Command, Plus, Search } from "lucide-react";
 import {
-    useParams,
-    usePathname,
-    useRouter,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Command, Plus, Search } from "lucide-react";
+import Link from "next/link";
+import {
+  useParams,
+  usePathname,
+  useRouter,
 } from "next/navigation";
 import { ReactNode } from "react";
 
@@ -18,39 +26,45 @@ export default function TopBar({ right }: TopBarProps) {
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
-
-  // Safely cast the slug from params
   const slug = params?.slug as string;
 
-  // Generate breadcrumbs from the URL path
   const crumbs = pathname?.split("/").filter(Boolean) || [];
-  // console.log(crumbs);
+  
   return (
     <header className="sticky top-0 z-20 border-b border-black/5 bg-background/80 backdrop-blur-md">
       <div className="flex items-center gap-6 px-12 py-6">
-        {/* Breadcrumbs */}
+        <div>{/* <StudioSwitcher/> */}</div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {crumbs.map((crumb, index) => {
-            const isLast = index === crumbs.length - 1;
-            return (
-              <span
-                key={index}
-                className="flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    "capitalize",
-                    isLast && "text-foreground font-medium",
-                  )}>
-                  {crumb.replace(/-/g, " ")}
-                </span>
-                {!isLast && (
-                  <span className="text-muted-foreground/40">
-                    /
-                  </span>
-                )}
-              </span>
-            );
-          })}
+          <Breadcrumb>
+            <BreadcrumbList className="text-xl">
+              {crumbs.map((crumb, index) => {
+                const isLast = index === crumbs.length - 1;
+                if (isLast) {
+                  return (
+                    <BreadcrumbItem key={index}>
+                      <BreadcrumbPage className="font-semibold">
+                        {crumb}
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  );
+                } else
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2">
+                      <BreadcrumbItem>
+                        <BreadcrumbLink
+                          render={
+                            <Link href="#">{crumb}</Link>
+                          }
+                        />
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                    </div>
+                  );
+              })}
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
 
         {/* Right Actions */}

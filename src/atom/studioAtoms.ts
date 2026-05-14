@@ -1,7 +1,10 @@
-import { atomWithStorage } from "jotai/utils";
+// src/atom/studioAtoms.ts
+import { atom } from "jotai";
 
-// This atom automatically syncs with localStorage under the key "active-studio-slug"
-export const activeStudioAtom = atomWithStorage<{
+export type ActiveStudio = {
   studioId: string;
   slug: string;
-} | null>("active-studio-slug", null);
+};
+
+// Start with undefined so we know if it hasn't hydrated yet
+export const activeStudioAtom = atom<ActiveStudio | null>(null);

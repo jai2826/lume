@@ -49,15 +49,12 @@ export default defineSchema({
     name: v.string(),
     ownerId: v.string(),
     slug: v.string(),
-    // REPLACED: Single inviteCode is gone
-    editorInviteCode: v.string(),
-    viewerInviteCode: v.string(),
+    // Single reusable invite code tied to the studio
+    inviteCode: v.string(),
   })
     .index("by_owner", ["ownerId"])
     .index("by_slug", ["slug"])
-    // ADDED: Two new indexes so we can search by either code instantly
-    .index("by_editorInviteCode", ["editorInviteCode"])
-    .index("by_viewerInviteCode", ["viewerInviteCode"]),
+    .index("by_inviteCode", ["inviteCode"]),
 
   // 3. ACCESS CONTROL (Who can see what Studio)
   studio_members: defineTable({
@@ -71,6 +68,16 @@ export default defineSchema({
   })
     .index("by_studio", ["studioId"])
     .index("by_user", ["userId"]),
+
+  // 4. Pending join requests created when a user submits an invite code.
+  // Owners can approve a request and assign a role at acceptance time.
+  join_requests: defineTable({
+    studioId: v.id("studios"),
+    userId: v.string(),
+    displayName: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    createdAt: v.number(),
+  }).index("by_studio", ["studioId"]),
 
   // 4. THE VAULT (OAuth Tokens for Platforms)
   social_keys: defineTable({
