@@ -1,29 +1,28 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { useAtom } from "jotai";
 import {
-  ChevronDown,
-  CirclePlusIcon,
-  Loader2Icon,
+    ChevronDown,
+    CirclePlusIcon,
+    Loader2Icon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { activeStudioAtom } from "@/atom/studioAtoms";
 import { Button } from "@/components/ui/button";
+import { useCachedStudios } from "@/hooks/useStudioCache";
 import { useStudioNavigation } from "@/hooks/useStudioNavigation";
 import { cn } from "@/lib/utils";
-import { api } from "../../convex/_generated/api";
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export function StudioSwitcher() {
@@ -31,13 +30,12 @@ export function StudioSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   
-  // 1. Fetch from Convex and Jotai
-  const studios = useQuery(api.studios.getMyStudios);
+  const { studios, isLoading } = useCachedStudios();
   const [activeStudio] = useAtom(activeStudioAtom); // We only need to read it here
   const { selectStudio } = useStudioNavigation();
 
   // 2. Graceful loading state based strictly on Convex fetching
-  if (studios === undefined) {
+  if (isLoading) {
     return (
       <Button
         variant="outline"

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   // Snapchat OAuth parameters
   const clientId = process.env.SNAPCHAT_CLIENT_ID;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/onboarding/snapchat`;
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/onboarding/snapchat/callback`;
   const scope = 'snapchat-marketing-api';
 
   if (!clientId) {

@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
 
     // SECURITY: Clear the CSRF state and studioId cookies after successful validation
     const response = NextResponse.redirect(
-      new URL('/onboarding?success=snapchat', request.url)
+      new URL('/oauth/connected?platform=snapchat', request.url)
     );
     response.cookies.delete(`oauth_state_snapchat_${userId}`);
     response.cookies.delete(`oauth_studioId_snapchat_${userId}`);

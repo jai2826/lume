@@ -5,34 +5,28 @@ import { saveSocialTokenToConvex } from "../../../../lib/save-social-util";
 
 export async function GET(request: NextRequest) {
   const { getToken } = await auth();
-  // if (!convexToken) {
-  //   console.error(
-  //     "CLERK TOKEN IS MISSING. Check JWT Templates in Clerk Dashboard.",
-  //   );
-  //   return NextResponse.redirect(
-  //     new URL("/onboarding?error=youtube", request.url),
-  //   );
-  // }
 
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.redirect(
       new URL(
-        "/onboarding?error=youtube&message=Unauthorized",
+        "/activestudios?error=youtube&message=Unauthorized",
         request.url,
       ),
     );
-    ``;
   }
 
   // SECURITY: Retrieve studioId from secure cookie
   const studioId = request.cookies.get(
     `oauth_studioId_youtube_${userId}`,
   )?.value;
+  const studioSlug = request.cookies.get(
+    `oauth_studioSlug_youtube_${userId}`,
+  )?.value;
   if (!studioId) {
     return NextResponse.redirect(
       new URL(
-        "/onboarding?error=youtube&message=Studio_Context_missing",
+        "/activestudios?error=youtube&message=Studio_Context_missing",
         request.url,
       ),
     );
@@ -63,7 +57,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.redirect(
       new URL(
-        "/onboarding?error=youtube&message=CSRF_validation_failed",
+        `/${studioSlug ?? studioId}/onboarding?error=youtube&message=CSRF_validation_failed`,
         request.url,
       ),
     );
@@ -75,7 +69,7 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.redirect(
       new URL(
-        `/onboarding?error=youtube&message=${message}`,
+        `/${studioSlug ?? studioId}/onboarding?error=youtube&message=${message}`,
         request.url,
       ),
     );
@@ -84,7 +78,7 @@ export async function GET(request: NextRequest) {
   if (!code) {
     return NextResponse.redirect(
       new URL(
-        "/onboarding?error=youtube&message=Missing_authorization_code",
+        `/${studioSlug ?? studioId}/onboarding?error=youtube&message=Missing_authorization_code`,
         request.url,
       ),
     );
@@ -94,7 +88,7 @@ export async function GET(request: NextRequest) {
   if (!encryptionKey) {
     return NextResponse.redirect(
       new URL(
-        "/onboarding?error=youtube&message=Missing_encryption_key",
+        `/${studioSlug ?? studioId}/onboarding?error=youtube&message=Missing_encryption_key`,
         request.url,
       ),
     );
@@ -114,7 +108,7 @@ export async function GET(request: NextRequest) {
     if (!accessToken || !refreshToken) {
       return NextResponse.redirect(
         new URL(
-          "/onboarding?error=youtube&message=Missing_OAuth_tokens",
+          `/${studioSlug ?? studioId}/onboarding?error=youtube&message=Missing_OAuth_tokens`,
           request.url,
         ),
       );
@@ -140,7 +134,7 @@ export async function GET(request: NextRequest) {
     if (!channel || !channel.id) {
       return NextResponse.redirect(
         new URL(
-          "/onboarding?error=youtube&message=Failed to get YouTube channel ID",
+          `/${studioSlug ?? studioId}/onboarding?error=youtube&message=Failed_to_get_YouTube_channel_ID`,
           request.url,
         ),
       );
@@ -172,7 +166,7 @@ export async function GET(request: NextRequest) {
 
     // SECURITY: Clear the CSRF state and studioId cookies after successful validation
     const response = NextResponse.redirect(
-      new URL("/onboarding?success=youtube", request.url),
+      new URL(`/oauth/connected?platform=youtube`, request.url),
     );
     response.cookies.delete(
       `oauth_state_youtube_${userId}`,
@@ -180,12 +174,15 @@ export async function GET(request: NextRequest) {
     response.cookies.delete(
       `oauth_studioId_youtube_${userId}`,
     );
+    response.cookies.delete(
+      `oauth_studioSlug_youtube_${userId}`,
+    );
     return response;
   } catch (error) {
     console.error("YouTube OAuth callback failed:", error);
     return NextResponse.redirect(
       new URL(
-        "/onboarding?error=youtube&message=OAuth_callback_failed",
+        `/${studioSlug ?? studioId}/onboarding?error=youtube&message=OAuth_callback_failed`,
         request.url,
       ),
     );

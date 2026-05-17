@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ConvexClientProvider from "@/provider/ConvexClientProvider";
 import { JotaiProvider } from "@/provider/JotaiProvider";
@@ -37,7 +38,10 @@ export async function MainProvider({
       <ConvexClientProvider>
         <JotaiProvider>
           <StudioProvider initialStudio={initialStudio}>
-            <TooltipProvider>{children}</TooltipProvider>
+            <TooltipProvider>
+              <Toaster />
+              {children}
+            </TooltipProvider>
           </StudioProvider>
         </JotaiProvider>
       </ConvexClientProvider>

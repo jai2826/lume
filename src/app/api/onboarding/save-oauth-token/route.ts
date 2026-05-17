@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "../../../../../convex/_generated/api";
+import { platformsList } from "@/lib/types";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate platform (add snapchat here as well)
-    if (!["instagram", "youtube", "x", "tiktok", "snapchat"].includes(platform)) {
+    if (!platformsList.includes(platform)) {
       return NextResponse.json(
         { error: "Invalid platform" },
         { status: 400 }
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    
     // Save to Convex using authenticated user
     try {
       // SECURITY: Verify user has access to this studio before saving token

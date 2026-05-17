@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-
+import { requireAuth } from "./lib/utils";
 
 /**
  * ==========================================
@@ -82,14 +82,13 @@ export const getCurrentUser = query({
 export const getStudioLinkedAccounts = query({
   args: { studioId: v.id("studios") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    const { userSession } = await requireAuth(ctx);
 
     // 1. Verify the user actually has access to this studio
     const membership = await ctx.db
       .query("studio_members")
       .withIndex("by_user", (q) =>
-        q.eq("userId", identity.subject),
+        q.eq("userId", userSession.subject),
       )
       .filter((q) =>
         q.eq(q.field("studioId"), args.studioId),
@@ -134,7 +133,7 @@ export const getStudioLinkedAccounts = query({
 
 export const storeOAuthToken = mutation({
   args: {
-    studioId: v.id("studios"), 
+    studioId: v.id("studios"),
     platform: v.union(
       v.literal("instagram"),
       v.literal("youtube"),
@@ -143,7 +142,7 @@ export const storeOAuthToken = mutation({
       v.literal("snapchat"),
     ),
     accountName: v.string(),
-    platformAccountId: v.string(), 
+    platformAccountId: v.string(),
     encryptedOAuthToken: v.string(),
     refreshToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
@@ -153,7 +152,9 @@ export const storeOAuthToken = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       // Throw a standard error. Next.js will catch this in its try/catch block.
-      throw new Error("Unauthorized: Invalid or missing Convex token.");
+      throw new Error(
+        "Unauthorized: Invalid or missing Convex token.",
+      );
     }
 
     // 2. Verify the caller belongs to the target studio
@@ -168,7 +169,9 @@ export const storeOAuthToken = mutation({
       .first();
 
     if (!membership) {
-      throw new Error("Unauthorized: Not a member of this studio");
+      throw new Error(
+        "Unauthorized: Not a member of this studio",
+      );
     }
 
     // 3. Check if account already exists using the precise compound index
@@ -185,11 +188,11 @@ export const storeOAuthToken = mutation({
     if (existing) {
       // 4. Update existing entry (e.g., refresh token rotation)
       await ctx.db.patch(existing._id, {
-        accountName: args.accountName, 
+        accountName: args.accountName,
         encryptedOAuthToken: args.encryptedOAuthToken,
         ...(args.refreshToken && {
           refreshToken: args.refreshToken,
-        }), 
+        }),
         tokenExpiresAt: args.tokenExpiresAt,
       });
       return existing._id;

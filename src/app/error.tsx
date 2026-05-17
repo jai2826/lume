@@ -1,9 +1,21 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, House } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { toast } from "sonner";
+
+function getErrorMessage(error: Error) {
+  const message = error.message?.trim();
+
+  if (!message || message === "Error") {
+    return "Something went wrong. Please try again.";
+  }
+
+  return message.length > 140 ? `${message.slice(0, 137)}...` : message;
+}
 
 export default function ErrorPage({
   error,
@@ -12,9 +24,21 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
     console.error("Application error:", error);
+    toast.error(getErrorMessage(error));
   }, [error]);
+
+  const handleGoBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push("/");
+  };
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -38,7 +62,8 @@ export default function ErrorPage({
             Something went wrong
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            An unexpected error occurred. Our team has been notified.
+            We could not complete that action. A brief error message has been
+            shown so you can recover safely.
           </p>
 
           {/* Error details (dev only) */}
@@ -63,11 +88,20 @@ export default function ErrorPage({
             >
               Try again
             </Button>
+            <Button
+              variant="outline"
+              onClick={handleGoBack}
+              className="h-11 rounded-full border-border font-semibold sm:px-8"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Go back
+            </Button>
             <Link href="/" className="flex">
               <Button
                 variant="outline"
                 className="h-11 w-full rounded-full border-border font-semibold sm:w-auto sm:px-8"
               >
+                <House className="mr-2 h-4 w-4" />
                 Back to home
               </Button>
             </Link>

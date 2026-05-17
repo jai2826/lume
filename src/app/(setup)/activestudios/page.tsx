@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import {
   Building2,
   Copy,
@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { clearLastActiveStudio } from "@/actions/studio";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,41 +43,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useCachedStudios, useStudioCacheActions } from "@/hooks/useStudioCache";
 import { useStudioNavigation } from "@/hooks/useStudioNavigation";
+import Link from "next/link";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { clearLastActiveStudio } from "@/actions/studio";
-import { useAtomValue } from "jotai";
-import { activeStudioAtom } from "@/atom/studioAtoms";
-import Link from "next/link";
-
-type StudioDoc = {
-  _id: Id<"studios">;
-  name: string;
-  slug: string;
-  ownerId: string;
-};
 
 export default function ActiveStudiosPage() {
   const router = useRouter();
   const { user } = useUser();
   const { selectStudio } = useStudioNavigation();
-  const studios = useQuery(api.studios.getMyStudios) as
-    | StudioDoc[]
-    | undefined;
+  const { studios, isLoading } = useCachedStudios();
+  const { updateStudio: updateStudioCache, removeStudio: removeStudioCache } = useStudioCacheActions();
   const updateStudio = useMutation(
     api.studios.updateStudio,
   );
   const deleteStudio = useMutation(
     api.studios.deleteStudio,
   );
-  const acceptJoinRequest = useMutation(
-    api.studios.acceptJoinRequest,
-  );
-  const rejectJoinRequest = useMutation(
-    api.studios.rejectJoinRequest,
-  );
-  const lastActiveStudio = useAtomValue(activeStudioAtom);
 
   const [editingStudio, setEditingStudio] = useState<{
     _id: Id<"studios">;
@@ -93,23 +77,8 @@ export default function ActiveStudiosPage() {
   const [removing, setRemoving] = useState(false);
   const [managingStudioId, setManagingStudioId] =
     useState<Id<"studios"> | null>(null);
-  //   const joinRequests = useQuery(
-  //     api.studios.getJoinRequests,
-  //     {
-  //       studioId: managingStudioId!,
-  //     },
-  //   ) as
-  //     | {
-  //         _id: Id<"join_requests">;
-  //         studioId: Id<"studios">;
-  //         userId: string;
-  //         displayName?: string;
-  //         status: string;
-  //         createdAt: number;
-  //       }[]
-  //     | undefined;
 
-  if (studios === undefined) {
+  if (isLoading) {
     return (
       <div className="relative min-h-dvh overflow-hidden bg-background">
         <div
@@ -151,6 +120,11 @@ export default function ActiveStudiosPage() {
         slug: editingStudio.slug,
       });
 
+      updateStudioCache(editingStudio._id, {
+        name: editingStudio.name,
+        slug: editingStudio.slug,
+      });
+
       toast.success("Studio updated.");
       setEditingStudio(null);
       router.refresh();
@@ -170,14 +144,12 @@ export default function ActiveStudiosPage() {
 
     setRemoving(true);
     try {
-      if (
-        lastActiveStudio &&
-        lastActiveStudio.studioId === deleteTarget._id
-      ) {
+      if (user?.publicMetadata?.lastActiveStudioId === deleteTarget._id) {
         // 2. Clear the Clerk metadata SECOND
         await clearLastActiveStudio();
       }
       await deleteStudio({ studioId: deleteTarget._id });
+      removeStudioCache(deleteTarget._id);
       toast.success("Studio deleted.");
       setDeleteTarget(null);
       router.refresh();
@@ -188,6 +160,8 @@ export default function ActiveStudiosPage() {
           : "Failed to delete studio.",
       );
     } finally {
+      setDeleteTarget(null);
+      setDeleteConfirmation("");
       setRemoving(false);
     }
   };
@@ -647,6 +621,7 @@ export default function ActiveStudiosPage() {
                 value={deleteConfirmation}
                 onChange={(e) =>
                   setDeleteConfirmation(e.target.value)
+
                 }
                 className="h-11 border-border bg-background/80 shadow-feather"
                 autoFocus

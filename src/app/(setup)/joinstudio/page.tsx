@@ -2,9 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useCachedStudios, useStudioCacheActions } from "@/hooks/useStudioCache";
 import { useStudioNavigation } from "@/hooks/useStudioNavigation";
 import { generateFriendlySlug } from "@/lib/slug-generator";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { RiResetLeftLine } from "react-icons/ri";
@@ -23,11 +24,12 @@ export default function SetupPage() {
   const [slug, setSlug] = useState("");
   const [inviteCode, setInviteCode] = useState("");
 
-  const studios = useQuery(api.studios.getMyStudios);
+  const { isLoading } = useCachedStudios();
   const createStudio = useMutation(api.studios.create);
   const joinStudio = useMutation(api.studios.join); // now creates a join request
+  const { upsertStudio, invalidateStudios } = useStudioCacheActions();
 
-  if (studios === undefined) {
+  if (isLoading) {
     return (
       <div className="relative min-h-dvh overflow-hidden bg-background">
         <div
@@ -58,6 +60,11 @@ export default function SetupPage() {
         slug,
       });
       toast.success("Studio created!");
+      upsertStudio({
+        _id: newStudio.studioId,
+        name: studioName,
+        slug: newStudio.slug,
+      });
       await selectStudio(
         newStudio.studioId,
         newStudio.slug,
@@ -87,6 +94,7 @@ export default function SetupPage() {
       await joinStudio({ inviteCode: inviteCode.toUpperCase() });
       toast.success("Join request sent — wait for owner approval.");
       setInviteCode("");
+      invalidateStudios();
     } catch (error) {
       toast.error(
         error instanceof Error

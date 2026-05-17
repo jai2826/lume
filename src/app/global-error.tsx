@@ -1,6 +1,22 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import { AlertTriangle, ArrowLeft, House } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { toast } from "sonner";
+
+function getErrorMessage(error: Error) {
+  const message = error.message?.trim();
+
+  if (!message || message === "Error") {
+    return "Something went wrong. Please try again.";
+  }
+
+  return message.length > 140 ? `${message.slice(0, 137)}...` : message;
+}
 
 export default function GlobalErrorPage({
   error,
@@ -9,9 +25,26 @@ export default function GlobalErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    console.error("Critical application error:", error);
+    toast.error(getErrorMessage(error));
+  }, [error]);
+
+  const handleGoBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push("/");
+  };
+
   return (
     <html>
       <body>
+        <Toaster />
         <div className="relative min-h-screen bg-background">
           {/* Ambient accent */}
           <div
@@ -33,7 +66,8 @@ export default function GlobalErrorPage({
                 Critical error
               </h1>
               <p className="mt-3 text-lg text-muted-foreground">
-                The application encountered a critical error and needs to restart.
+                The application hit a critical issue. You can go back or return
+                home to continue safely.
               </p>
 
               {/* Error details (dev only) */}
@@ -51,13 +85,30 @@ export default function GlobalErrorPage({
               )}
 
               {/* Actions */}
-              <div className="mt-8 flex flex-col gap-3">
-                <button
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <Button
                   onClick={reset}
                   className="h-11 rounded-full bg-brand px-8 font-semibold text-white shadow-glow transition-colors hover:bg-brand-600 active:translate-y-px"
                 >
                   Restart application
-                </button>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleGoBack}
+                  className="h-11 rounded-full border-border font-semibold sm:px-8"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Go back
+                </Button>
+                <Link href="/" className="flex">
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full rounded-full border-border font-semibold sm:w-auto sm:px-8"
+                  >
+                    <House className="mr-2 h-4 w-4" />
+                    Back to home
+                  </Button>
+                </Link>
               </div>
 
               {/* Footer */}

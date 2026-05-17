@@ -5,25 +5,26 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const { userId } = await auth();
+  const studioId = request.nextUrl.searchParams.get('studioId');
+  const studioSlug = request.nextUrl.searchParams.get('studioSlug');
+  // Get studioId from query parameters
+  if (!studioId) {
+    return NextResponse.redirect(
+      new URL('/activestudios?error=youtube&message=Studio_not_found', request.url)
+    );
+  }
 
   if (!userId) {
     return NextResponse.redirect(
-      new URL('/onboarding?error=youtube&message=Unauthorized', request.url)
+      new URL(`/${studioId}/onboarding?error=youtube&message=Unauthorized`, request.url)
     );
   }
 
-  // Get studioId from query parameters
-  const studioId = request.nextUrl.searchParams.get('studioId');
-  if (!studioId) {
-    return NextResponse.redirect(
-      new URL('/onboarding?error=youtube&message=Studio_not_found', request.url)
-    );
-  }
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.YOUTUBE_CLIENT_ID,
     process.env.YOUTUBE_CLIENT_SECRET,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/onboarding/youtube`
+    `${process.env.NEXT_PUBLIC_APP_URL}/api/onboarding/youtube/callback`
   );
 
   // const scopes = [
@@ -71,6 +72,16 @@ export async function GET(request: NextRequest) {
     maxAge: 600, // 10 minutes
     path: '/',
   });
+
+  if (studioSlug) {
+    response.cookies.set(`oauth_studioSlug_youtube_${userId}`, studioSlug, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600, // 10 minutes
+      path: '/',
+    });
+  }
 
   return response;
 }
