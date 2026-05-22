@@ -1,182 +1,314 @@
-import { encryptToken } from "@/lib/encryption";
+import { auth } from "@clerk/nextjs/server";
+import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
+import { instagramOAuthConfig } from "@/lib/social-config";
+import { saveSocialTokenToConvex } from "@/lib/save-social-util";
+import { api } from "../../../../../../convex/_generated/api";
 
-interface TokenResponse {
-  access_token: string;
-  user_id: string;
-}
+/**
+ * Instagram Business Login Callback Endpoint
+ *
+ * Flow:
+ * 1. Validate CSRF state token
+ * 2. Exchange authorization code → short-lived token (api.instagram.com)
+ * 3. Exchange short-lived → long-lived token (graph.instagram.com) [60 days]
+ * 4. Fetch user profile (id, username)
+ * 5. Save encrypted token to Convex
+ *
+ * Docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login
+ */
+export async function GET(request: NextRequest) {
+  const { userId, getToken } = await auth();
 
-interface UserResponse {
-  id: string;
-  username: string;
-  name?: string;
-}
-
-async function exchangeCodeForToken(
-  code: string,
-  redirectUri: string
-): Promise<TokenResponse> {
-  const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID!;
-  const clientSecret = process.env.INSTAGRAM_APP_SECRET!;
-
-  // ✅ CORRECTED: Use Instagram's native token endpoint (not Facebook)
-  const tokenUrl = "https://api.instagram.com/oauth/access_token";
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    grant_type: "authorization_code",
-    redirect_uri: redirectUri,
-    code: code,
-  });
-
-  const response = await fetch(tokenUrl, {
-    method: "POST",
-    body: params,
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Token exchange failed: ${error}`);
+  if (!userId) {
+    return NextResponse.redirect(
+      new URL(
+        "/onboarding?error=instagram&message=Unauthorized",
+        request.url,
+      ),
+    );
   }
 
-  const data = (await response.json()) as TokenResponse;
-  return data;
-}
+  const convexToken = await getToken({ template: "convex" });
+  if (!convexToken) {
+    return NextResponse.redirect(
+      new URL(
+        "/onboarding?error=instagram&message=Missing Convex auth token",
+        request.url,
+      ),
+    );
+  }
 
-async function getInstagramUserInfo(
-  accessToken: string,
-  userId: string
-): Promise<{
-  userId: string;
-  username: string;
-  igBusinessAccountId: string;
-}> {
-  // ✅ CORRECTED: Use Instagram's native graph endpoint
-  const userResponse = await fetch(
-    `https://graph.instagram.com/${userId}?fields=id,username,name,ig_handle&access_token=${encodeURIComponent(
-      accessToken
-    )}`
+  const code = request.nextUrl.searchParams.get("code");
+  const stateParam =
+    request.nextUrl.searchParams.get("state");
+  const oauthError =
+    request.nextUrl.searchParams.get("error");
+  const errorDescription = request.nextUrl.searchParams.get(
+    "error_description",
   );
 
-  if (!userResponse.ok) {
-    const error = await userResponse.text();
-    throw new Error(`Failed to get user info: ${error}`);
+  if (!stateParam) {
+    return NextResponse.redirect(
+      new URL(
+        "/onboarding?error=instagram&message=Missing state token",
+        request.url,
+      ),
+    );
   }
 
-  const user = (await userResponse.json()) as UserResponse & { ig_handle?: string };
+  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  convex.setAuth(convexToken);
 
-  // The user ID from token response IS the Instagram Business Account ID
-  // No need to fetch it separately like with Facebook API
-  return {
-    userId: user.id,
-    username: user.username,
-    igBusinessAccountId: userId, // From token response
-  };
-}
+  const pendingTransaction = await convex.query(
+    api.oauth.getPendingOAuthTransaction,
+    {
+      stateToken: stateParam,
+      platform: "instagram",
+    },
+  );
 
-export async function GET(request: NextRequest) {
+  if (!pendingTransaction) {
+    return NextResponse.redirect(
+      new URL(
+        "/onboarding?error=instagram&message=Pending transaction not found",
+        request.url,
+      ),
+    );
+  }
+
+  // Handle user denied permission
+  if (oauthError) {
+    const message = encodeURIComponent(
+      errorDescription ?? oauthError,
+    );
+    return NextResponse.redirect(
+      new URL(
+        `${instagramOAuthConfig.failureRedirectPath()}&message=${message}`,
+        request.url,
+      ),
+    );
+  }
+
+  if (!code) {
+    return NextResponse.redirect(
+      new URL(
+        `${instagramOAuthConfig.failureRedirectPath()}&message=Missing authorization code`,
+        request.url,
+      ),
+    );
+  }
+
+  const clientId = process.env[instagramOAuthConfig.clientIdEnvVar]!;
+  const clientSecret = process.env[instagramOAuthConfig.clientSecretEnvVar]!;
+
+  if (!clientId || !clientSecret) {
+    return NextResponse.redirect(
+      new URL(
+        `${instagramOAuthConfig.failureRedirectPath()}&message=Missing Instagram configuration`,
+        request.url,
+      ),
+    );
+  }
+
   try {
-    const url = new URL(request.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const error = url.searchParams.get("error");
-    const errorDescription = url.searchParams.get("error_description");
+    // ─────────────────────────────────────────────────
+    // STEP 1: Exchange code for SHORT-LIVED access token
+    // Endpoint: https://api.instagram.com/oauth/access_token
+    // ─────────────────────────────────────────────────
+    const tokenResponse = await fetch(
+      "https://api.instagram.com/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: "authorization_code",
+          redirect_uri: instagramOAuthConfig.redirectUri,
+          code,
+        }).toString(),
+      },
+    );
 
-    // Handle user denied permission
-    if (error) {
-      return NextResponse.json(
-        { error: `Auth denied: ${error}`, description: errorDescription },
-        { status: 400 }
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error(
+        "Instagram token exchange failed:",
+        errorData,
+      );
+      return NextResponse.redirect(
+        new URL(
+          `${instagramOAuthConfig.failureRedirectPath()}&message=Token exchange failed`,
+          request.url,
+        ),
       );
     }
 
-    if (!code || !state) {
-      return NextResponse.json(
-        { error: "Missing code or state parameter" },
-        { status: 400 }
+    // Response shape: { access_token, user_id, permissions }
+    // NOTE: token response wraps in data array per newer API
+    const tokenRaw = (await tokenResponse.json()) as
+      | {
+          access_token: string;
+          user_id: string;
+          permissions?: string;
+        }
+      | {
+          data: Array<{
+            access_token: string;
+            user_id: string;
+            permissions?: string;
+          }>;
+        };
+
+    let shortLivedToken: string;
+    let instagramUserId: string;
+
+    if (
+      "data" in tokenRaw &&
+      Array.isArray(tokenRaw.data)
+    ) {
+      shortLivedToken = tokenRaw.data[0].access_token;
+      instagramUserId = tokenRaw.data[0].user_id;
+    } else if ("access_token" in tokenRaw) {
+      shortLivedToken = tokenRaw.access_token;
+      instagramUserId = tokenRaw.user_id;
+    } else {
+      throw new Error(
+        "Unexpected token response shape from Instagram",
       );
     }
 
-    // Validate state to prevent CSRF
-    const stored = request.cookies.get("oauth_state_instagram")?.value;
-    if (!stored) {
-      return NextResponse.json({ error: "Missing state cookie" }, { status: 400 });
+    if (!shortLivedToken || !instagramUserId) {
+      return NextResponse.redirect(
+        new URL(
+          `${instagramOAuthConfig.failureRedirectPath()}&message=Missing access token`,
+          request.url,
+        ),
+      );
     }
 
-    const parsed = JSON.parse(
-      Buffer.from(stored, "base64").toString("utf-8")
-    ) as { state: string; studioId: string };
-
-    if (parsed.state !== state) {
-      return NextResponse.json({ error: "Invalid state token" }, { status: 400 });
-    }
-
-    const { studioId } = parsed;
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/onboarding/instagram/callback`;
-
-    // Step 1: Exchange code for access token using Instagram's native endpoint
-    const tokenData = await exchangeCodeForToken(code, redirectUri);
-
-    // Step 2: Get user info (simplified compared to Facebook API)
-    const accountInfo = await getInstagramUserInfo(
-      tokenData.access_token,
-      tokenData.user_id
+    // ─────────────────────────────────────────────────
+    // STEP 2: Exchange short-lived → LONG-LIVED token (60 days)
+    // Endpoint: https://graph.instagram.com/access_token
+    // This MUST be server-side (includes app secret)
+    // ─────────────────────────────────────────────────
+    const longLivedResponse = await fetch(
+      `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortLivedToken}`,
     );
 
-    // Step 3: Encrypt sensitive data
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error("Missing ENCRYPTION_KEY environment variable");
+    let accessToken = shortLivedToken;
+    let tokenExpiresAt: number | undefined;
+
+    if (longLivedResponse.ok) {
+      const longLivedData =
+        (await longLivedResponse.json()) as {
+          access_token: string;
+          token_type: string;
+          expires_in: number;
+        };
+      accessToken =
+        longLivedData.access_token ?? shortLivedToken;
+      tokenExpiresAt = longLivedData.expires_in
+        ? Date.now() + longLivedData.expires_in * 1000
+        : undefined;
+    } else {
+      // Non-fatal: fall back to short-lived token
+      console.warn(
+        "Failed to get long-lived token, proceeding with short-lived token",
+      );
     }
 
-    const encrypted = encryptToken(tokenData.access_token, encryptionKey);
+    // ─────────────────────────────────────────────────
+    // STEP 3: Fetch Instagram user profile
+    // Endpoint: https://graph.instagram.com/me
+    // ─────────────────────────────────────────────────
+    let accountName = "Instagram Account";
+    let platformAccountId = instagramUserId;
 
-    // Step 4: Store in cookies and prepare response
-    const res = NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/oauth/connected?platform=instagram&username=${encodeURIComponent(
-        accountInfo.username
-      )}`
-    );
+    try {
+      const profileResponse = await fetch(
+        `https://graph.instagram.com/me?fields=id,username,name&access_token=${accessToken}`,
+      );
 
-    // ✅ Store encrypted access token
-    res.cookies.set("oauth_token_instagram", encrypted, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      if (profileResponse.ok) {
+        const profile = (await profileResponse.json()) as {
+          id: string;
+          username?: string;
+          name?: string;
+        };
+        platformAccountId = profile.id ?? instagramUserId;
+        accountName =
+          profile.username ??
+          profile.name ??
+          `Instagram Account (${profile.id})`;
+      }
+    } catch (profileError) {
+      console.error(
+        "Failed to fetch Instagram profile:",
+        profileError,
+      );
+      // Continue with defaults — non-fatal
+    }
+
+    // ─────────────────────────────────────────────────
+    // STEP 4: Get Convex auth token and save to DB
+    // ─────────────────────────────────────────────────
+    const convexToken = await getToken({
+      template: "convex",
     });
 
-    // ✅ Store Instagram account IDs
-    res.cookies.set(
-      "oauth_instagram_accounts",
-      JSON.stringify({
-        igBusinessAccountId: accountInfo.igBusinessAccountId,
-        userId: accountInfo.userId,
-        username: accountInfo.username,
-      }),
-      {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24 * 30,
-      }
+    if (!convexToken) {
+      return NextResponse.redirect(
+        new URL(
+          `${instagramOAuthConfig.failureRedirectPath()}&message=Missing Convex auth token`,
+          request.url,
+        ),
+      );
+    }
+
+    await saveSocialTokenToConvex({
+      convexToken,
+      studioId: pendingTransaction.studioId,
+      platform: "instagram",
+      accountName,
+      platformAccountId,
+      rawAccessToken: accessToken,
+      // Instagram Business Login does not issue a refresh_token.
+      // Long-lived tokens are refreshed via /refresh_access_token before expiry.
+      tokenExpiresAt,
+    });
+
+    await convex.mutation(api.oauth.completePendingOAuthTransaction, {
+      stateToken: stateParam,
+      platform: "instagram",
+    });
+
+    const response = NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}${instagramOAuthConfig.successRedirectPath}`,
+    );
+    return response;
+  } catch (error) {
+    console.error(
+      "Instagram OAuth callback failed:",
+      error,
     );
 
-    // Clear state cookie
-    res.cookies.delete("oauth_state_instagram");
+    await convex.mutation(api.oauth.failPendingOAuthTransaction, {
+      stateToken: stateParam,
+      platform: "instagram",
+      failureReason:
+        error instanceof Error ? error.message : "OAuth callback failed",
+    });
 
-    return res;
-  } catch (err: any) {
-    console.error("Instagram callback error:", err);
-    return NextResponse.json(
-      { error: err.message || "Callback processing failed" },
-      { status: 500 }
+    return NextResponse.redirect(
+      new URL(
+        `${instagramOAuthConfig.failureRedirectPath()}&message=OAuth callback failed`,
+        request.url,
+      ),
     );
   }
 }

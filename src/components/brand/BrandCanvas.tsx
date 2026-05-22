@@ -26,7 +26,7 @@ export function BrandCanvas({
       {/* Layer 2: The Grid */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 bg-grid opacity-35"
+        className="pointer-events-none absolute inset-0 z-0 bg-grid opacity-50"
       />
 
       {/* Layer 3: Your Content */}

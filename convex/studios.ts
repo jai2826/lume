@@ -2,9 +2,9 @@ import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
-  getAuthUserId,
-  requireAuth,
-  requireStudioAdmin,
+    getAuthUserId,
+    requireAuth,
+    requireStudioAdmin,
 } from "./lib/utils";
 
 export const create = mutation({
@@ -222,9 +222,7 @@ export const updateStudio = mutation({
 export const deleteStudio = mutation({
   args: { studioId: v.id("studios") },
   handler: async (ctx, args) => {
-    
-      await requireStudioAdmin(ctx, args.studioId);
-
+    await requireStudioAdmin(ctx, args.studioId);
 
     const [memberships, socialKeys, shots, joinRequests] =
       await Promise.all([
@@ -276,12 +274,10 @@ export const deleteStudio = mutation({
   },
 });
 
-
-
 /**
  * Get a studio by its slug.
  * This is used by StudioSlugSync to fetch the full studio data.
- * 
+ *
  * Security:
  * - Verifies the user is a member of this studio
  * - Prevents users from accessing studios they're not part of
@@ -291,7 +287,10 @@ export const getStudioBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
     // Get the authenticated user
-    const {userSession} = await requireAuth(ctx);
+    const { userSession } = await getAuthUserId(ctx);
+    if(!userSession) {
+      return null;
+    }
 
     // Find the studio by slug
     const studio = await ctx.db
@@ -306,7 +305,41 @@ export const getStudioBySlug = query({
     // Verify the user is a member of this studio
     const membership = await ctx.db
       .query("studio_members")
-      .withIndex("by_user", (q) => q.eq("userId", userSession.subject))
+      .withIndex("by_user", (q) =>
+        q.eq("userId", userSession.subject),
+      )
+      .filter((q) => q.eq(q.field("studioId"), studio._id))
+      .first();
+
+    if (!membership) {
+      throw new Error(
+        "Unauthorized: Not a member of this studio",
+      );
+    }
+
+    // Return the studio data
+    return  membership ? studio : null;
+  },
+});
+
+export const getStudioById = query({
+  args: { studioId: v.id("studios") },
+  handler: async (ctx, args) => {
+    const { userSession } = await getAuthUserId(ctx);
+    if (!userSession) {
+      return null;
+    }
+
+    const studio = await ctx.db.get(args.studioId);
+    if (!studio) {
+      return null;
+    }
+
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", userSession.subject),
+      )
       .filter((q) => q.eq(q.field("studioId"), studio._id))
       .first();
 
@@ -314,7 +347,6 @@ export const getStudioBySlug = query({
       throw new Error("Unauthorized: Not a member of this studio");
     }
 
-    // Return the studio data
     return studio;
   },
 });

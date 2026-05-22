@@ -1,6 +1,10 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireAuth } from "./lib/utils";
+import { query } from "./_generated/server";
+// IMPORTANT: Import your new wrappers from wherever you saved them!
+import {
+  authedMutation,
+  softAuthedQuery,
+} from "./lib/middleware";
 
 /**
  * ==========================================
@@ -8,25 +12,18 @@ import { requireAuth } from "./lib/utils";
  * ==========================================
  */
 
-export const createOrUpdateUser = mutation({
+// Wraps mutation: Guarantees ctx.user exists
+export const createOrUpdateUser = authedMutation({
   args: {
     clerkId: v.string(),
     email: v.optional(v.string()),
     name: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // SECURITY: Verify the request is actually coming from the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-
-    if (!identity) {
+    // We already know they are logged in. Just check if the ID matches.
+    if (ctx.user.subject !== args.clerkId) {
       throw new Error(
-        "CRITICAL: Identity is null. Convex is rejecting the Clerk token.",
-      );
-    }
-
-    if (identity.subject !== args.clerkId) {
-      throw new Error(
-        `CRITICAL: ID Mismatch. Clerk sent ${args.clerkId}, but token says ${identity.subject}`,
+        `CRITICAL: ID Mismatch. Clerk sent ${args.clerkId}, but token says ${ctx.user.subject}`,
       );
     }
 
@@ -57,17 +54,18 @@ export const createOrUpdateUser = mutation({
   },
 });
 
-export const getCurrentUser = query({
+// Wraps query: Won't crash the UI if auth is still loading
+export const getCurrentUser = softAuthedQuery({
   args: {},
   handler: async (ctx) => {
-    // FIXED: Properly fetches the identity from Clerk via Convex
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    // Fail gracefully if not logged in yet
+    const user = ctx.user;
+    if (!ctx || !user) return null;
 
     return await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) =>
-        q.eq("clerkId", identity.subject),
+        q.eq("clerkId", user.subject),
       )
       .first();
   },
@@ -79,26 +77,23 @@ export const getCurrentUser = query({
  * ==========================================
  */
 
-export const getStudioLinkedAccounts = query({
+export const getStudioLinkedAccounts = softAuthedQuery({
   args: { studioId: v.id("studios") },
   handler: async (ctx, args) => {
-    const { userSession } = await requireAuth(ctx);
+    const user = ctx.user;
+    if (!user) return [];
 
-    // 1. Verify the user actually has access to this studio
+    // 1. Verify membership using the fast compound index
     const membership = await ctx.db
       .query("studio_members")
-      .withIndex("by_user", (q) =>
-        q.eq("userId", userSession.subject),
-      )
-      .filter((q) =>
-        q.eq(q.field("studioId"), args.studioId),
+      .withIndex("by_user_and_studio", (q) =>
+        q
+          .eq("userId", user.subject)
+          .eq("studioId", args.studioId),
       )
       .first();
 
-    if (!membership)
-      throw new Error(
-        "Unauthorized: Not a member of this studio",
-      );
+    if (!membership) return []; // UI Query: fail gracefully
 
     // 2. Fetch the keys tied to the STUDIO
     const accounts = await ctx.db
@@ -131,7 +126,7 @@ export const getStudioLinkedAccounts = query({
   },
 });
 
-export const storeOAuthToken = mutation({
+export const storeOAuthToken = authedMutation({
   args: {
     studioId: v.id("studios"),
     platform: v.union(
@@ -148,23 +143,13 @@ export const storeOAuthToken = mutation({
     tokenExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // 1. SECURITY: Validate Convex Identity
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      // Throw a standard error. Next.js will catch this in its try/catch block.
-      throw new Error(
-        "Unauthorized: Invalid or missing Convex token.",
-      );
-    }
-
-    // 2. Verify the caller belongs to the target studio
+    // 1. Verify the caller belongs to the target studio using the fast index! (NO MORE .filter)
     const membership = await ctx.db
       .query("studio_members")
-      .withIndex("by_user", (q) =>
-        q.eq("userId", identity.subject),
-      )
-      .filter((q) =>
-        q.eq(q.field("studioId"), args.studioId),
+      .withIndex("by_user_and_studio", (q) =>
+        q
+          .eq("userId", ctx.user.subject)
+          .eq("studioId", args.studioId),
       )
       .first();
 
@@ -174,7 +159,7 @@ export const storeOAuthToken = mutation({
       );
     }
 
-    // 3. Check if account already exists using the precise compound index
+    // 2. Check if account already exists using the precise compound index
     const existing = await ctx.db
       .query("social_keys")
       .withIndex("by_studio_platform_account", (q) =>
@@ -186,7 +171,7 @@ export const storeOAuthToken = mutation({
       .first();
 
     if (existing) {
-      // 4. Update existing entry (e.g., refresh token rotation)
+      // 3. Update existing entry (e.g., refresh token rotation)
       await ctx.db.patch(existing._id, {
         accountName: args.accountName,
         encryptedOAuthToken: args.encryptedOAuthToken,
@@ -198,7 +183,7 @@ export const storeOAuthToken = mutation({
       return existing._id;
     }
 
-    // 5. Insert new entry
+    // 4. Insert new entry
     const newId = await ctx.db.insert("social_keys", {
       studioId: args.studioId,
       platform: args.platform,
@@ -213,24 +198,21 @@ export const storeOAuthToken = mutation({
   },
 });
 
-export const removeLinkedAccount = mutation({
+export const removeLinkedAccount = authedMutation({
   args: { accountId: v.id("social_keys") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-
-    // Fetch the key to check which studio it belongs to
+    // Fetch the key first to find out which studio it belongs to
     const key = await ctx.db.get(args.accountId);
     if (!key) throw new Error("Account not found");
 
     // Verify the user is an admin of the studio before letting them delete a key
+    // FIXED: Using the compound index here too!
     const membership = await ctx.db
       .query("studio_members")
-      .withIndex("by_user", (q) =>
-        q.eq("userId", identity.subject),
-      )
-      .filter((q) =>
-        q.eq(q.field("studioId"), key.studioId),
+      .withIndex("by_user_and_studio", (q) =>
+        q
+          .eq("userId", ctx.user.subject)
+          .eq("studioId", key.studioId),
       )
       .first();
 
@@ -245,14 +227,15 @@ export const removeLinkedAccount = mutation({
   },
 });
 
-// Requires the server secret to prevent abuse, since this exposes user data based on Clerk ID
+// Notice we use standard `query` here. Why?
+// Because this is called by Clerk's webhook server, not a logged-in user.
+// ctx.auth will be null, so softAuthedQuery wouldn't help us here.
 export const getUserByClerkId = query({
   args: {
     clerkId: v.string(),
-    serverSecret: v.string(), // Force the caller to provide the password
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    // Check if the password matches the Convex environment variable
     if (
       args.serverSecret !==
       process.env.SERVER_TO_SERVER_SECRET

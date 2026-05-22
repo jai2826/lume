@@ -27,34 +27,34 @@ import { api } from "../../../../convex/_generated/api";
  * - Without this, reloading would show the wrong studio in the switcher
  * - Clerk metadata is global, so it can't be trusted for per-tab state
  */
-export function StudioSlugSync() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const setActiveStudio = useSetAtom(activeStudioAtom);
-  const { upsertStudio } = useStudioCacheActions();
+// export function StudioSlugSync() {
+//   const params = useParams();
+//   const slug = params.slug as string;
+//   const setActiveStudio = useSetAtom(activeStudioAtom);
+//   const { upsertStudio } = useStudioCacheActions();
   
-  // Fetch the studio data by slug from Convex
-  // This validates that the user has access to this studio
-  const studio = useQuery(api.studios.getStudioBySlug, { slug });
+//   // Fetch the studio data by slug from Convex
+//   // This validates that the user has access to this studio
+//   const studio = useQuery(api.studios.getStudioBySlug, { slug });
 
-  useEffect(() => {
-    // Only sync when we have the studio data
-    // studio === undefined means loading
-    // studio === null means not found or user doesn't have access
-    if (studio) {
-      setActiveStudio({
-        studioId: studio._id,
-        slug: studio.slug,
-      });
-      upsertStudio({
-        _id: studio._id,
-        name: studio.name,
-        slug: studio.slug,
-      });
-    }
-  }, [slug, studio, setActiveStudio, upsertStudio]);
+//   useEffect(() => {
+//     // Only sync when we have the studio data
+//     // studio === undefined means loading
+//     // studio === null means not found or user doesn't have access
+//     if (studio) {
+//       setActiveStudio({
+//         studioId: studio._id,
+//         slug: studio.slug,
+//       });
+//       upsertStudio({
+//         _id: studio._id,
+//         name: studio.name,
+//         slug: studio.slug,
+//       });
+//     }
+//   }, [slug, studio, setActiveStudio, upsertStudio]);
 
-  // This component doesn't render anything - it's purely a side effect
-  // The actual rendering is handled by Sidebar, TopBar, and children
-  return null;
-}
+//   // This component doesn't render anything - it's purely a side effect
+//   // The actual rendering is handled by Sidebar, TopBar, and children
+//   return null;
+// }

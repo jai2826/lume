@@ -4,8 +4,6 @@ import { activeStudioAtom } from "@/atom/studioAtoms";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
-import { DevTools } from "jotai-devtools";
-import "jotai-devtools/styles.css";
 
 export default function DashboardPage() {
   const activeStudio = useAtomValue(activeStudioAtom);

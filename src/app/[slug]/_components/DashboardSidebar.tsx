@@ -1,66 +1,48 @@
 "use client";
 
 import { StudioSwitcher } from "@/components/studio-switcher";
+import {
+    Sidebar,
+    SidebarContent,
+} from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserButton, useUser } from "@clerk/nextjs";
 import {
-  BarChart3,
-  Calendar,
-  LayoutGrid,
-  Link2,
-  PenSquare,
-  Settings,
+    FileText,
+    PenSquare,
+    Settings,
+    Users
 } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 import { LumeLogo } from "../../../components/brand/logo"; // Adjust import path as needed
-import {
-  Sidebar,
-  SidebarContent,
-} from "@/components/ui/sidebar";
 
-// const NAV = [
-//   {
-//     group: "WORKSPACE",
-//     items: [
-//       {
-//         href: "dashboard",
-//         label: "Studio Dashboard",
-//         icon: LayoutGrid,
-//       },
-//       {
-//         href: "composer",
-//         label: "Shot Composer",
-//         icon: PenSquare,
-//         accent: true,
-//       },
-//       {
-//         href: "calendar",
-//         label: "Content Calendar",
-//         icon: Calendar,
-//       },
-//       {
-//         href: "analytics",
-//         label: "Analytics",
-//         icon: BarChart3,
-//       },
-//     ],
-//   },
-//   {
-//     group: "SETUP",
-//     items: [
-//       {
-//         href: "connections",
-//         label: "Connection Review",
-//         icon: Link2,
-//       },
-//       {
-//         href: "settings",
-//         label: "Settings",
-//         icon: Settings,
-//       },
-//     ],
-//   },
-// ];
+const NAV = [
+  {
+    group: "DASHBOARD",
+    items: [
+      {
+        href: "shots",
+        label: "Shots",
+        icon: PenSquare,
+      },
+      {
+        href: "accounts",
+        label: "Accounts",
+        icon: Users,
+      },
+      {
+        href: "files",
+        label: "Files",
+        icon: FileText,
+      },
+      {
+        href: "settings",
+        label: "Settings",
+        icon: Settings,
+      },
+    ],
+  },
+];
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
@@ -78,7 +60,37 @@ export default function DashboardSidebar() {
           <StudioSwitcher />
         </div>
 
-        <nav className="flex-1 space-y-8 px-4 py-6 overflow-y-auto scrollbar-thin"></nav>
+        <nav className="flex-1 space-y-8 px-4 py-6 overflow-y-auto scrollbar-thin">
+          {NAV.map((section) => (
+            <div key={section.group}>
+              <h3 className="px-2 mb-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {section.group}
+              </h3>
+              <div className="space-y-2">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const href = `/${slug}/dashboard/${item.href}`;
+                  const isActive = pathname === href;
+
+                  return (
+                    <a
+                      key={item.href}
+                      href={href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-sidebar-accent hover:text-accent-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
 
         {/* 2. Real User Profile Section */}
         <div className="m-4 flex items-center gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-feather">
