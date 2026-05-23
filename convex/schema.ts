@@ -13,6 +13,9 @@ export const shotPlatformEntryValidator = v.object({
     v.literal("published"),
     v.literal("failed"),
   ),
+  selected: v.optional(v.boolean()),
+  postType: v.optional(v.string()),
+  notes: v.optional(v.string()),
   generatedText: v.optional(v.string()), // Optional until generation is complete
   mediaAssetUrl: v.optional(v.string()), // Optional until generation is complete
 });

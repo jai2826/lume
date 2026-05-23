@@ -2,9 +2,9 @@ import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
-    getAuthUserId,
-    requireAuth,
-    requireStudioAdmin,
+  getAuthUserId,
+  requireAuth,
+  requireStudioAdmin,
 } from "./lib/utils";
 
 export const create = mutation({
@@ -288,7 +288,7 @@ export const getStudioBySlug = query({
   handler: async (ctx, args) => {
     // Get the authenticated user
     const { userSession } = await getAuthUserId(ctx);
-    if(!userSession) {
+    if (!userSession) {
       return null;
     }
 
@@ -298,9 +298,7 @@ export const getStudioBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
 
-    if (!studio) {
-      throw new Error("Studio not found");
-    }
+    if (!studio) return null; // was: throw new Error("Studio not found")
 
     // Verify the user is a member of this studio
     const membership = await ctx.db
@@ -311,14 +309,10 @@ export const getStudioBySlug = query({
       .filter((q) => q.eq(q.field("studioId"), studio._id))
       .first();
 
-    if (!membership) {
-      throw new Error(
-        "Unauthorized: Not a member of this studio",
-      );
-    }
+    if (!membership) return null;
 
     // Return the studio data
-    return  membership ? studio : null;
+    return membership ? studio : null;
   },
 });
 
@@ -343,9 +337,7 @@ export const getStudioById = query({
       .filter((q) => q.eq(q.field("studioId"), studio._id))
       .first();
 
-    if (!membership) {
-      throw new Error("Unauthorized: Not a member of this studio");
-    }
+    if (!membership) return null;  
 
     return studio;
   },

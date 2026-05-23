@@ -2,26 +2,27 @@
 
 import { useQuery } from "convex/react";
 import { useAtom } from "jotai";
-import { useEffect, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import {
-    CACHE_TTL_MS,
-    EMPTY_LINKED_ACCOUNTS,
-    linkedAccountsCacheAtom,
-    normalizeLinkedAccounts,
-    studiosCacheAtom,
-    type LinkedAccountsSnapshot,
-    type StudioSnapshot,
+  CACHE_TTL_MS,
+  EMPTY_LINKED_ACCOUNTS,
+  linkedAccountsCacheAtom,
+  normalizeLinkedAccounts,
+  studiosCacheAtom,
+  type LinkedAccountsSnapshot,
+  type StudioSnapshot,
 } from "@/atom/studioCacheAtoms";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
+import type {
+  Doc,
+  Id,
+} from "../../convex/_generated/dataModel";
 
-function mapStudioSnapshot(studio: {
-  _id: string;
-  name: string;
-  slug: string;
-  ownerId?: string;
-}): StudioSnapshot {
+// Accepts the full Convex Doc shape — getMyStudios returns Doc<"studios">[]
+function mapStudioSnapshot(
+  studio: Doc<"studios">,
+): StudioSnapshot {
   return {
     _id: studio._id,
     name: studio.name,
@@ -30,8 +31,10 @@ function mapStudioSnapshot(studio: {
   };
 }
 
-function isFresh(updatedAt: number) {
-  return updatedAt > 0 && Date.now() - updatedAt < CACHE_TTL_MS;
+function isFresh(updatedAt: number): boolean {
+  return (
+    updatedAt > 0 && Date.now() - updatedAt < CACHE_TTL_MS
+  );
 }
 
 export function useCachedStudios() {
@@ -40,33 +43,42 @@ export function useCachedStudios() {
 
   useEffect(() => {
     if (!liveStudios) return;
-
     setCache({
       data: liveStudios.map(mapStudioSnapshot),
       updatedAt: Date.now(),
     });
   }, [liveStudios, setCache]);
 
-  const studios = liveStudios?.map(mapStudioSnapshot) ?? cache.data;
+  const studios =
+    liveStudios?.map(mapStudioSnapshot) ?? cache.data;
 
   return {
     studios,
-    isLoading: liveStudios === undefined && cache.data.length === 0,
+    isLoading:
+      liveStudios === undefined && cache.data.length === 0,
     isFresh: isFresh(cache.updatedAt),
   };
 }
 
-export function useCachedStudioLinkedAccounts(studioId?: string | null) {
-  const [cache, setCache] = useAtom(linkedAccountsCacheAtom);
-  const cachedEntry = studioId ? cache[studioId] : undefined;
+export function useCachedStudioLinkedAccounts(
+  studioId?: string | null,
+) {
+  const [cache, setCache] = useAtom(
+    linkedAccountsCacheAtom,
+  );
+  const cachedEntry = studioId
+    ? cache[studioId]
+    : undefined;
+
   const liveAccounts = useQuery(
     api.auth.getStudioLinkedAccounts,
-    studioId ? { studioId: studioId as Id<"studios"> } : "skip",
+    studioId
+      ? { studioId: studioId as Id<"studios"> }
+      : "skip",
   );
 
   useEffect(() => {
-    if (!studioId || !liveAccounts) return;
-
+    if (!studioId || !liveAccounts) return; // null is falsy, so this already guards the effect
     setCache((current) => ({
       ...current,
       [studioId]: {
@@ -76,48 +88,73 @@ export function useCachedStudioLinkedAccounts(studioId?: string | null) {
     }));
   }, [studioId, liveAccounts, setCache]);
 
-  const accounts = liveAccounts
-    ? normalizeLinkedAccounts(liveAccounts)
-    : cachedEntry?.data ?? EMPTY_LINKED_ACCOUNTS;
-
+  const accounts: LinkedAccountsSnapshot = liveAccounts
+    ? normalizeLinkedAccounts(liveAccounts) // only called when truthy — null excluded
+    : (cachedEntry?.data ?? EMPTY_LINKED_ACCOUNTS);
+    
   return {
     accounts,
     isLoading:
-      Boolean(studioId) && liveAccounts === undefined && !cachedEntry,
-    isFresh: cachedEntry ? isFresh(cachedEntry.updatedAt) : false,
+      Boolean(studioId) &&
+      liveAccounts === undefined &&
+      !cachedEntry,
+    isFresh: cachedEntry
+      ? isFresh(cachedEntry.updatedAt)
+      : false,
   };
 }
 
 export function useStudioCacheActions() {
   const [, setStudiosCache] = useAtom(studiosCacheAtom);
-  const [, setLinkedAccountsCache] = useAtom(linkedAccountsCacheAtom);
+  const [, setLinkedAccountsCache] = useAtom(
+    linkedAccountsCacheAtom,
+  );
 
-  const replaceStudios = useCallback((studios: StudioSnapshot[]) => {
-    setStudiosCache({ data: studios, updatedAt: Date.now() });
-  }, [setStudiosCache]);
-
-  const upsertStudio = useCallback((studio: StudioSnapshot) => {
-    setStudiosCache((current) => {
-      const next = current.data.filter((item) => item._id !== studio._id);
-      return {
-        data: [studio, ...next],
+  const replaceStudios = useCallback(
+    (studios: StudioSnapshot[]) => {
+      setStudiosCache({
+        data: studios,
         updatedAt: Date.now(),
-      };
-    });
-  }, [setStudiosCache]);
+      });
+    },
+    [setStudiosCache],
+  );
 
-  const removeStudio = useCallback((studioId: string) => {
-    setStudiosCache((current) => ({
-      data: current.data.filter((studio) => studio._id !== studioId),
-      updatedAt: Date.now(),
-    }));
-  }, [setStudiosCache]);
+  const upsertStudio = useCallback(
+    (studio: StudioSnapshot) => {
+      setStudiosCache((current) => ({
+        data: [
+          studio,
+          ...current.data.filter(
+            (s) => s._id !== studio._id,
+          ),
+        ],
+        updatedAt: Date.now(),
+      }));
+    },
+    [setStudiosCache],
+  );
+
+  const removeStudio = useCallback(
+    (studioId: string) => {
+      setStudiosCache((current) => ({
+        data: current.data.filter(
+          (s) => s._id !== studioId,
+        ),
+        updatedAt: Date.now(),
+      }));
+    },
+    [setStudiosCache],
+  );
 
   const updateStudio = useCallback(
-    (studioId: string, updates: Partial<StudioSnapshot>) => {
+    (
+      studioId: string,
+      updates: Partial<StudioSnapshot>,
+    ) => {
       setStudiosCache((current) => ({
-        data: current.data.map((studio) =>
-          studio._id === studioId ? { ...studio, ...updates } : studio,
+        data: current.data.map((s) =>
+          s._id === studioId ? { ...s, ...updates } : s,
         ),
         updatedAt: Date.now(),
       }));
@@ -133,7 +170,10 @@ export function useStudioCacheActions() {
   }, [setStudiosCache]);
 
   const setLinkedAccounts = useCallback(
-    (studioId: string, accounts: LinkedAccountsSnapshot) => {
+    (
+      studioId: string,
+      accounts: LinkedAccountsSnapshot,
+    ) => {
       setLinkedAccountsCache((current) => ({
         ...current,
         [studioId]: {
@@ -150,13 +190,9 @@ export function useStudioCacheActions() {
       setLinkedAccountsCache((current) => {
         const existing = current[studioId];
         if (!existing) return current;
-
         return {
           ...current,
-          [studioId]: {
-            ...existing,
-            updatedAt: 0,
-          },
+          [studioId]: { ...existing, updatedAt: 0 },
         };
       });
     },

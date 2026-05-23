@@ -2,29 +2,291 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
-import { File, Image as ImageIcon, Loader2, Mic, Video, X } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  Check,
+  File,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
+import DashboardHeader from "@/app/[slug]/_components/DashboardHeader";
 import { activeStudioAtom } from "@/atom/studioAtoms";
+import {
+  type LinkedAccountsSnapshot,
+  EMPTY_LINKED_ACCOUNTS,
+} from "@/atom/studioCacheAtoms";
+import { useCachedStudioLinkedAccounts } from "@/hooks/useStudioCache";
 import { PLATFORMS } from "@/lib/constants";
+import type { PlatformKey } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { BrandCanvas } from "@/components/brand/BrandCanvas";
 
-type UploadedMediaKind = "image" | "video" | "audio" | "file";
+type UploadedMediaKind =
+  | "image"
+  | "video"
+  | "audio"
+  | "file";
+
+type AttachmentStatus =
+  | "queued"
+  | "uploading"
+  | "uploaded"
+  | "error";
+
+type ComposerAttachment = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  kind: UploadedMediaKind;
+  status: AttachmentStatus;
+  publicUrl?: string;
+  error?: string;
+};
+
+type PlatformDraft = {
+  selected: boolean;
+  postType: string;
+  notes: string;
+  generatedText: string;
+  status: "idle" | "generating" | "ready";
+  mediaAssetUrl: string;
+};
+
+type PlatformDraftState = Record<
+  PlatformKey,
+  PlatformDraft
+>;
+
+type ShotPlatformPayload = {
+  status:
+    | "idle"
+    | "generating"
+    | "ready"
+    | "published"
+    | "failed";
+  selected: boolean;
+  postType?: string;
+  notes?: string;
+  generatedText?: string;
+  mediaAssetUrl?: string;
+};
+
+type ShotPlatformsPayload = Record<
+  PlatformKey,
+  ShotPlatformPayload
+>;
+
+const PLATFORM_SETTINGS: Record<
+  PlatformKey,
+  {
+    defaultPostType: string;
+    options: string[];
+    hint: string;
+    prompt: string;
+  }
+> = {
+  instagram: {
+    defaultPostType: "Reel",
+    options: ["Reel", "Story", "Post", "Carousel"],
+    hint: "Feed-native, visual, and punchy.",
+    prompt:
+      "Lead with a visual hook and end with a clear CTA.",
+  },
+  youtube: {
+    defaultPostType: "Short",
+    options: ["Short", "Video", "Community post"],
+    hint: "Built for search, retention, and clarity.",
+    prompt:
+      "Open fast, explain the payoff, then suggest the next click.",
+  },
+  x: {
+    defaultPostType: "Post",
+    options: ["Post", "Thread"],
+    hint: "Tight copy with a sharp opening line.",
+    prompt:
+      "Keep the first line crisp and make the value obvious.",
+  },
+  tiktok: {
+    defaultPostType: "Video",
+    options: ["Video", "Photo post"],
+    hint: "Fast pacing with creator-style framing.",
+    prompt:
+      "Start with motion or a strong claim, then keep the energy moving.",
+  },
+  snapchat: {
+    defaultPostType: "Story",
+    options: ["Story", "Spotlight", "Post"],
+    hint: "Casual, quick, and story-first.",
+    prompt:
+      "Write like a native story update with a lightweight CTA.",
+  },
+};
+
+function createEmptyPlatformDrafts(): PlatformDraftState {
+  return PLATFORMS.reduce((drafts, platform) => {
+    drafts[platform.key] = {
+      selected: false,
+      postType:
+        PLATFORM_SETTINGS[platform.key].defaultPostType,
+      notes: "",
+      generatedText: "",
+      status: "idle",
+      mediaAssetUrl: "",
+    };
+    return drafts;
+  }, {} as PlatformDraftState);
+}
+
+function createDraftsFromLinkedAccounts(
+  accounts: LinkedAccountsSnapshot = EMPTY_LINKED_ACCOUNTS,
+): PlatformDraftState {
+  return PLATFORMS.reduce((drafts, platform) => {
+    drafts[platform.key] = {
+      selected: accounts[platform.key].length > 0,
+      postType:
+        PLATFORM_SETTINGS[platform.key].defaultPostType,
+      notes: "",
+      generatedText: "",
+      status: "idle",
+      mediaAssetUrl: "",
+    };
+    return drafts;
+  }, {} as PlatformDraftState);
+}
+
+function isUploadableFile(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    file.type.startsWith("video/") ||
+    file.type.startsWith("audio/")
+  );
+}
+
+function getMediaKind(file: File): UploadedMediaKind {
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  if (file.type.startsWith("image/")) return "image";
+  return "file";
+}
+
+function summarizeAttachments(
+  attachments: ComposerAttachment[],
+) {
+  if (!attachments.length) return "";
+
+  const counts = attachments.reduce(
+    (acc, attachment) => {
+      acc[attachment.kind] += 1;
+      return acc;
+    },
+    { image: 0, video: 0, audio: 0, file: 0 },
+  );
+
+  const summary: string[] = [];
+  if (counts.image)
+    summary.push(
+      `${counts.image} image${counts.image > 1 ? "s" : ""}`,
+    );
+  if (counts.video)
+    summary.push(
+      `${counts.video} video${counts.video > 1 ? "s" : ""}`,
+    );
+  if (counts.audio)
+    summary.push(
+      `${counts.audio} audio${counts.audio > 1 ? "s" : ""}`,
+    );
+  if (counts.file)
+    summary.push(
+      `${counts.file} file${counts.file > 1 ? "s" : ""}`,
+    );
+
+  return summary.join(", ");
+}
+
+function buildGeneratedCopy({
+  platform,
+  title,
+  text,
+  postType,
+  attachments,
+}: {
+  platform: PlatformKey;
+  title: string;
+  text: string;
+  postType: string;
+  attachments: ComposerAttachment[];
+}) {
+  const platformLabel =
+    PLATFORMS.find((entry) => entry.key === platform)
+      ?.label ?? platform;
+  const attachmentSummary =
+    summarizeAttachments(attachments) ||
+    "no media attached yet";
+  const sourceText = text.trim() || title.trim();
+  const fallback = `Turn this into a polished ${postType.toLowerCase()} for ${platformLabel}.`;
+
+  const leadByPlatform: Record<PlatformKey, string> = {
+    instagram:
+      "Lead with a visual hook and end with a clear CTA.",
+    youtube:
+      "Open with the payoff, then make the next step obvious.",
+    x: "Keep the first line sharp and make the value instantly legible.",
+    tiktok: "Start with motion, contrast, or curiosity.",
+    snapchat: "Keep it native, quick, and story-first.",
+  };
+
+  const followUpByPlatform: Record<PlatformKey, string> = {
+    instagram:
+      "Add 3 to 5 relevant hashtags and a conversational caption.",
+    youtube:
+      "Include a title, description, and a keyword-friendly CTA.",
+    x: "Make every line earn its place and trim any filler.",
+    tiktok:
+      "Keep the copy energetic and write like a creator, not a brand.",
+    snapchat:
+      "Write like a fast status update with light context.",
+  };
+
+  return [
+    `${platformLabel} ${postType}`,
+    leadByPlatform[platform],
+    sourceText ? `Source: ${sourceText}` : fallback,
+    `Media: ${attachmentSummary}.`,
+    followUpByPlatform[platform],
+  ].join("\n");
+}
 
 export default function ComposerPage() {
   const router = useRouter();
@@ -33,56 +295,344 @@ export default function ComposerPage() {
   const slug = activeStudio?.slug;
 
   const createShot = useMutation(api.shots.createShot);
-  const currentUser = useQuery(api.auth.getCurrentUser, {});
   const studio = useQuery(
     api.studios.getStudioById,
-    studioId ? { studioId: studioId as Id<"studios"> } : "skip",
+    studioId
+      ? { studioId: studioId as Id<"studios"> }
+      : "skip",
   );
+  const {
+    accounts: linkedAccounts,
+    isLoading: linkedAccountsLoading,
+  } = useCachedStudioLinkedAccounts(studioId);
 
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
-  const [images, setImages] = useState("");
-  const [videos, setVideos] = useState("");
-  const [audios, setAudios] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreviewUrl, setFilePreviewUrl] = useState("");
-  const [uploadedFileUrl, setUploadedFileUrl] = useState("");
-  const [uploadedFileKind, setUploadedFileKind] = useState<UploadedMediaKind | null>(null);
+  const [attachments, setAttachments] = useState<
+    ComposerAttachment[]
+  >([]);
+  const [platformDrafts, setPlatformDrafts] =
+    useState<PlatformDraftState>(() =>
+      createEmptyPlatformDrafts(),
+    );
   const [loading, setLoading] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(
+    null,
+  );
+  const attachmentsRef = useRef<ComposerAttachment[]>([]);
+  const hasTouchedTargetsRef = useRef(false);
+  const didInitializeTargetsRef = useRef(false);
 
   useEffect(() => {
-    if (!selectedFile) {
-      setFilePreviewUrl("");
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((attachment) => {
+        URL.revokeObjectURL(attachment.previewUrl);
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      !isMounted ||
+      !linkedAccounts ||
+      hasTouchedTargetsRef.current ||
+      didInitializeTargetsRef.current
+    ) {
       return;
     }
 
-    const preview = URL.createObjectURL(selectedFile);
-    setFilePreviewUrl(preview);
+    setPlatformDrafts(
+      createDraftsFromLinkedAccounts(linkedAccounts),
+    );
+    didInitializeTargetsRef.current = true;
+  }, [isMounted, linkedAccounts]);
 
-    return () => URL.revokeObjectURL(preview);
-  }, [selectedFile]);
+  const uploadedAttachments = useMemo(
+    () =>
+      attachments.filter(
+        (attachment) =>
+          attachment.status === "uploaded" &&
+          attachment.publicUrl,
+      ),
+    [attachments],
+  );
+  const pendingUploadCount = useMemo(
+    () =>
+      attachments.filter(
+        (attachment) =>
+          attachment.status === "queued" ||
+          attachment.status === "uploading",
+      ).length,
+    [attachments],
+  );
+  const hasAttachmentErrors = useMemo(
+    () =>
+      attachments.some(
+        (attachment) => attachment.status === "error",
+      ),
+    [attachments],
+  );
+  const primaryMediaUrl =
+    uploadedAttachments[0]?.publicUrl ?? "";
+  const renderedLinkedAccounts = isMounted
+    ? linkedAccounts
+    : EMPTY_LINKED_ACCOUNTS;
 
-  const previewSource = uploadedFileUrl || filePreviewUrl;
-  const previewKind = useMemo(() => {
-    if (!selectedFile) return null;
-    if (selectedFile.type.startsWith("image/")) return "image";
-    if (selectedFile.type.startsWith("video/")) return "video";
-    if (selectedFile.type.startsWith("audio/")) return "audio";
-    return "file";
-  }, [selectedFile]);
+  const selectedTargetCount = useMemo(
+    () =>
+      PLATFORMS.filter(
+        (platform) => platformDrafts[platform.key].selected,
+      ).length,
+    [platformDrafts],
+  );
+  const connectedTargetCount = useMemo(
+    () =>
+      PLATFORMS.filter(
+        (platform) =>
+          (renderedLinkedAccounts[platform.key]?.length ??
+            0) > 0,
+      ).length,
+    [renderedLinkedAccounts],
+  );
 
-  const studioName = studio?.name ?? "Active studio";
+  const studioName =
+    studio?.name ?? activeStudio?.slug ?? "Active studio";
   const studioMemberId = studio?._id ?? studioId;
-  const userName = currentUser?.name ?? currentUser?.email ?? "Current user";
-  const userId = currentUser?.clerkId ?? "unknown";
+
+  const updatePlatformDraft = (
+    platform: PlatformKey,
+    updates: Partial<PlatformDraft>,
+  ) => {
+    setPlatformDrafts((current) => ({
+      ...current,
+      [platform]: {
+        ...current[platform],
+        ...updates,
+      },
+    }));
+  };
+
+  const uploadAttachment = async (
+    attachment: ComposerAttachment,
+  ) => {
+    if (!studioId) {
+      throw new Error("Select an active studio first.");
+    }
+
+    setAttachments((current) =>
+      current.map((item) =>
+        item.id === attachment.id
+          ? {
+              ...item,
+              status: "uploading",
+              error: undefined,
+            }
+          : item,
+      ),
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append("file", attachment.file);
+      formData.append("studioId", studioId);
+
+      const response = await fetch("/api/uploads/r2", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const payload = (await response
+          .json()
+          .catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(
+          payload.error || "Failed to prepare upload.",
+        );
+      }
+
+      const payload = (await response.json()) as {
+        publicUrl: string;
+      };
+
+      setAttachments((current) =>
+        current.map((item) =>
+          item.id === attachment.id
+            ? {
+                ...item,
+                status: "uploaded",
+                publicUrl: payload.publicUrl,
+                error: undefined,
+              }
+            : item,
+        ),
+      );
+
+      return payload.publicUrl;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "File upload failed.";
+
+      setAttachments((current) =>
+        current.map((item) =>
+          item.id === attachment.id
+            ? { ...item, status: "error", error: message }
+            : item,
+        ),
+      );
+
+      throw error;
+    }
+  };
+
+  const ingestFiles = async (files: File[]) => {
+    if (!studioId) {
+      toast.error("Select an active studio first.");
+      return;
+    }
+
+    const acceptedFiles = files.filter(isUploadableFile);
+    if (!acceptedFiles.length) {
+      toast.error("Paste an image, video, or audio file.");
+      return;
+    }
+
+    const newAttachments = acceptedFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      kind: getMediaKind(file),
+      status: "queued" as const,
+    }));
+
+    setAttachments((current) => [
+      ...current,
+      ...newAttachments,
+    ]);
+
+    await Promise.all(
+      newAttachments.map(async (attachment) => {
+        try {
+          await uploadAttachment(attachment);
+        } catch {
+          // The attachment stays visible with an error state so it can be retried.
+        }
+      }),
+    );
+  };
+
+  const retryAttachment = (attachmentId: string) => {
+    const attachment = attachmentsRef.current.find(
+      (item) => item.id === attachmentId,
+    );
+
+    if (!attachment) {
+      return;
+    }
+
+    void uploadAttachment(attachment).catch(() => {
+      // The attachment row already reflects the error state.
+    });
+  };
+
+  const removeAttachment = (attachmentId: string) => {
+    const attachment = attachmentsRef.current.find(
+      (item) => item.id === attachmentId,
+    );
+
+    if (attachment) {
+      URL.revokeObjectURL(attachment.previewUrl);
+    }
+
+    setAttachments((current) =>
+      current.filter((item) => item.id !== attachmentId),
+    );
+  };
+
+  const toggleTarget = (platform: PlatformKey) => {
+    const connected =
+      (linkedAccounts?.[platform]?.length ?? 0) > 0;
+    if (!connected) {
+      return;
+    }
+
+    hasTouchedTargetsRef.current = true;
+    updatePlatformDraft(platform, {
+      selected: !platformDrafts[platform].selected,
+    });
+  };
+
+  const handleGenerate = async () => {
+    if (!text.trim() && !attachments.length) {
+      toast.error("Paste a prompt or drop media first.");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const nextDrafts = PLATFORMS.reduce(
+        (drafts, platform) => {
+          const current = platformDrafts[platform.key];
+          const postType =
+            current.postType ||
+            PLATFORM_SETTINGS[platform.key].defaultPostType;
+
+          drafts[platform.key] = {
+            ...current,
+            postType,
+            generatedText: buildGeneratedCopy({
+              platform: platform.key,
+              title,
+              text,
+              postType,
+              attachments,
+            }),
+            status: "ready",
+            mediaAssetUrl: primaryMediaUrl,
+          };
+
+          return drafts;
+        },
+        {} as PlatformDraftState,
+      );
+
+      setPlatformDrafts(nextDrafts);
+      toast.success("Drafts generated for all platforms.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleCreate = async () => {
-    if (!studioId) return toast.error("Select an active studio first.");
-    if (!text.trim()) return toast.error("Shot copy is required.");
-    if (uploadingFile) return toast.error("Wait for the file upload to finish.");
-    if (selectedFile && !uploadedFileUrl) {
-      return toast.error("Upload the selected file before creating the shot.");
+    if (!studioId)
+      return toast.error("Select an active studio first.");
+    if (!text.trim() && !attachments.length) {
+      return toast.error(
+        "Paste a prompt or attach media first.",
+      );
+    }
+    if (pendingUploadCount) {
+      return toast.error(
+        "Wait for the pasted files to finish uploading.",
+      );
+    }
+    if (hasAttachmentErrors) {
+      return toast.error(
+        "Retry or remove failed attachments before creating the shot.",
+      );
     }
 
     const inputs: {
@@ -92,35 +642,59 @@ export default function ComposerPage() {
       audios?: string[];
     } = { text: text.trim() };
 
-    const parseList = (val: string) =>
-      val
-        .split(/\r?\n|,/) // allow newline or comma separated
-        .map((s) => s.trim())
-        .filter(Boolean);
+    const promptText =
+      text.trim() || title.trim() || "Media-led shot draft";
 
-    const imgs = parseList(images);
-    const vids = parseList(videos);
-    const auds = parseList(audios);
+    const uploadedImageUrls = uploadedAttachments
+      .filter((attachment) => attachment.kind === "image")
+      .map((attachment) => attachment.publicUrl!)
+      .filter(Boolean);
+    const uploadedVideoUrls = uploadedAttachments
+      .filter((attachment) => attachment.kind === "video")
+      .map((attachment) => attachment.publicUrl!)
+      .filter(Boolean);
+    const uploadedAudioUrls = uploadedAttachments
+      .filter((attachment) => attachment.kind === "audio")
+      .map((attachment) => attachment.publicUrl!)
+      .filter(Boolean);
 
-    if (imgs.length) inputs.images = imgs;
-    if (vids.length) inputs.videos = vids;
-    if (auds.length) inputs.audios = auds;
-    if (uploadedFileUrl) {
-      if (uploadedFileKind === "video") {
-        inputs.videos = [...(inputs.videos ?? []), uploadedFileUrl];
-      } else if (uploadedFileKind === "audio") {
-        inputs.audios = [...(inputs.audios ?? []), uploadedFileUrl];
-      } else {
-        inputs.images = [...(inputs.images ?? []), uploadedFileUrl];
-      }
-    }
+    inputs.text = promptText;
+    if (uploadedImageUrls.length)
+      inputs.images = uploadedImageUrls;
+    if (uploadedVideoUrls.length)
+      inputs.videos = uploadedVideoUrls;
+    if (uploadedAudioUrls.length)
+      inputs.audios = uploadedAudioUrls;
+
+    const platforms: ShotPlatformsPayload =
+      PLATFORMS.reduce((result, platform) => {
+        const draft = platformDrafts[platform.key];
+        const generatedText = draft.generatedText.trim();
+
+        result[platform.key] = {
+          status:
+            draft.selected && generatedText
+              ? "ready"
+              : "idle",
+          selected: draft.selected,
+          postType: draft.postType.trim() || undefined,
+          notes: draft.notes.trim() || undefined,
+          generatedText: generatedText || undefined,
+          mediaAssetUrl:
+            draft.mediaAssetUrl ||
+            primaryMediaUrl ||
+            undefined,
+        };
+
+        return result;
+      }, {} as ShotPlatformsPayload);
 
     setLoading(true);
     try {
       const newId = await createShot({
         title: title.trim() || undefined,
         inputs,
-        // platforms omitted so server will fill defaults
+        platforms,
         studioId: studioId as Id<"studios">,
       });
 
@@ -131,319 +705,426 @@ export default function ComposerPage() {
         router.push(`/${slug}/dashboard/shots`);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create shot.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to create shot.",
+      );
       setLoading(false);
     }
   };
 
-  const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+  const handlePaste = (
+    event: React.ClipboardEvent<HTMLTextAreaElement>,
   ) => {
-    const file = event.target.files?.[0] ?? null;
-    setSelectedFile(file);
-    setUploadedFileUrl("");
-    setUploadedFileKind(null);
-
-    if (!file || !studioId) {
+    const files = Array.from(
+      event.clipboardData.files ?? [],
+    );
+    if (!files.length) {
       return;
     }
 
-    const kind: UploadedMediaKind = file.type.startsWith("video/")
-      ? "video"
-      : file.type.startsWith("audio/")
-        ? "audio"
-        : file.type.startsWith("image/")
-          ? "image"
-          : "file";
-
-    setUploadedFileKind(kind);
-    setUploadingFile(true);
-
-    try {
-      const response = await fetch("/api/uploads/r2", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type || "application/octet-stream",
-          studioId,
-        }),
-      });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(payload.error || "Failed to prepare upload.");
-      }
-
-      const payload = (await response.json()) as {
-        uploadUrl: string;
-        publicUrl: string;
-      };
-
-      const uploadResponse = await fetch(payload.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
-        body: file,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file to R2.");
-      }
-
-      setUploadedFileUrl(payload.publicUrl);
-      toast.success("File uploaded to Cloudflare R2.");
-    } catch (error) {
-      setSelectedFile(null);
-      setUploadedFileKind(null);
-      setUploadedFileUrl("");
-      toast.error(
-        error instanceof Error ? error.message : "File upload failed.",
-      );
-    } finally {
-      setUploadingFile(false);
-    }
+    event.preventDefault();
+    void ingestFiles(files);
   };
 
-  const clearSelectedFile = () => {
-    setSelectedFile(null);
-    setFilePreviewUrl("");
-    setUploadedFileUrl("");
-    setUploadedFileKind(null);
+  const handleDrop = (
+    event: React.DragEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    const files = Array.from(
+      event.dataTransfer.files ?? [],
+    );
+    if (!files.length) {
+      return;
+    }
+
+    void ingestFiles(files);
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
   };
 
   return (
     <div className="p-8 md:p-12">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-card/90 p-6 shadow-sm md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex w-fit rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-              Composer
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-              New shot composer
-            </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-              Draft the copy, upload a file to Cloudflare R2,
-              and create a shot in the current studio.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link href={`/${slug ?? "activestudios"}/dashboard/shots`}>Back to shots</Link>}
-          />
-        </div>
+        <DashboardHeader
+          tag="Composer"
+          heading="Shot composer"
+          description="Paste copy and media like a chat. Uploads happen automatically, and each social network gets its own draft card."
+          CustomButtons={[
+            <Button
+              key="back"
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/${slug ?? "activestudios"}/dashboard/shots`}>
+                  <ArrowLeftIcon />
+                  Back to shots
+                </Link>
+              }
+            />,
+          ]}
+        />
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Shot composer</CardTitle>
-              <CardDescription>
-                Create a shot with copy, media URLs, and an uploaded file preview.
-              </CardDescription>
+        <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+          <Card className="overflow-hidden border-border/70 bg-background/85 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
+            <CardHeader className="border-b border-border/60 bg-muted/20">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-1.5">
+                  <CardTitle>Compose with files</CardTitle>
+                  <CardDescription>
+                    Paste images, videos, or audio directly
+                    into the prompt area. Multiple files
+                    upload together and stay visible as
+                    previews.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => void handleGenerate()}
+                  disabled={
+                    isGenerating ||
+                    (!text.trim() &&
+                      attachments.length === 0)
+                  }
+                  className="bg-brand text-white">
+                  <Sparkles className="h-4 w-4" />
+                  {isGenerating
+                    ? "Generating..."
+                    : "Generate"}
+                </Button>
+              </div>
             </CardHeader>
 
-            <CardContent className="space-y-6">
-              <div className="grid gap-3 md:grid-cols-2">
-                {/* <MetadataPill label="Studio" value={studioName} idValue={String(studioMemberId ?? "unknown")} />
-                <MetadataPill label="User" value={userName} idValue={userId} /> */}
+            <CardContent className="space-y-6 p-6">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div>
+                  <label className="ml-1 text-sm font-medium text-foreground/80">
+                    Title
+                  </label>
+                  <Input
+                    value={title}
+                    onChange={(event) =>
+                      setTitle(event.target.value)
+                    }
+                    placeholder="Short internal title"
+                    className="mt-2"
+                  />
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Target summary
+                  </p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {isMounted
+                      ? `${selectedTargetCount} selected / ${connectedTargetCount} connected`
+                      : "Loading targets..."}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Connected networks are enabled by
+                    default. Locked targets stay disabled
+                    until an account is linked.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label className="ml-1 text-sm font-medium text-foreground/80">Title (optional)</label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Short descriptive title"
-                  className="mt-2"
-                />
-              </div>
+              <div
+                className="rounded-3xl border border-dashed border-border/70 bg-background/70 p-4"
+                onDrop={handleDrop}
+                onDragOver={(event) =>
+                  event.preventDefault()
+                }>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                      Prompt and paste area
+                    </div>
+                    <p className="max-w-2xl text-xs leading-5 text-muted-foreground">
+                      Paste text like a chat prompt. If your
+                      clipboard contains files, they upload
+                      automatically and render below without
+                      leaving the page.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openFilePicker}>
+                      <Plus className="h-4 w-4" />
+                      Browse files
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => {
+                        const files = Array.from(
+                          event.target.files ?? [],
+                        );
+                        if (files.length) {
+                          void ingestFiles(files);
+                        }
+                        event.target.value = "";
+                      }}
+                    />
+                  </div>
+                </div>
 
-              <div>
-                <label className="ml-1 text-sm font-medium text-foreground/80">Copy</label>
                 <Textarea
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder="Enter the shot copy — this is required"
-                  className="mt-2"
+                  onChange={(event) =>
+                    setText(event.target.value)
+                  }
+                  onPaste={handlePaste}
+                  placeholder="Write the core prompt here, then paste files directly into this box."
+                  className="mt-4 min-h-36 rounded-2xl border-border/70 bg-background/80 text-sm leading-6"
                 />
+
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline">
+                    Paste to upload
+                  </Badge>
+                  <Badge variant="outline">
+                    Multi-file supported
+                  </Badge>
+                  <Badge variant="outline">
+                    Preview stays visible
+                  </Badge>
+                </div>
               </div>
 
-              <div>
-                <label className="ml-1 text-sm font-medium text-foreground/80">File upload</label>
-                <div className="mt-2 rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4">
-                  <Input
-                    type="file"
-                    accept="image/*,video/*,audio/*"
-                    onChange={handleFileChange}
-                    className="h-auto border-0 bg-transparent px-0 py-2 file:mr-4 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
-                  />
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                    <span>
-                      Selected files are uploaded to Cloudflare R2 before the shot is created.
-                    </span>
-                    {(selectedFile || uploadingFile) ? (
-                      <button
-                        type="button"
-                        onClick={clearSelectedFile}
-                        className="inline-flex items-center gap-1 rounded-full border border-border/70 px-3 py-1 font-medium text-foreground transition-colors hover:bg-muted"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Clear
-                      </button>
-                    ) : null}
+              {attachments.length ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">
+                        Attached media
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {summarizeAttachments(
+                          attachments,
+                        ) ||
+                          `${attachments.length} file(s)`}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {pendingUploadCount
+                        ? `${pendingUploadCount} uploading`
+                        : hasAttachmentErrors
+                          ? "Resolve failed uploads"
+                          : "All files uploaded"}
+                    </p>
                   </div>
 
-                  {selectedFile ? (
-                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                      <div className="space-y-2 rounded-2xl border border-border/60 bg-background/80 p-4">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <File className="h-4 w-4" />
-                          {selectedFile.name}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {selectedFile.type || "application/octet-stream"} · {formatBytes(selectedFile.size)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Status: {uploadingFile ? "Uploading to R2..." : uploadedFileUrl ? "Uploaded to R2" : "Ready"}
-                        </p>
-                        {uploadedFileUrl ? (
-                          <a
-                            href={uploadedFileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex text-xs font-medium text-primary hover:underline"
-                          >
-                            Open R2 asset
-                          </a>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {attachments.map((attachment) => (
+                      <AttachmentPreviewCard
+                        key={attachment.id}
+                        attachment={attachment}
+                        onRetry={() =>
+                          retryAttachment(attachment.id)
+                        }
+                        onRemove={() =>
+                          removeAttachment(attachment.id)
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="space-y-3">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">
+                      Publish targets
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Toggle the social networks you want to
+                      publish to. Unconnected networks stay
+                      disabled.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {PLATFORMS.map((platform) => {
+                    const draft =
+                      platformDrafts[platform.key];
+                    const connected =
+                      (renderedLinkedAccounts[platform.key]
+                        ?.length ?? 0) > 0;
+
+                    return (
+                      <Button
+                        key={platform.key}
+                        type="button"
+                        variant={
+                          draft.selected
+                            ? "secondary"
+                            : "outline"
+                        }
+                        size="sm"
+                        disabled={!connected}
+                        onClick={() =>
+                          toggleTarget(platform.key)
+                        }
+                        className={cn(
+                          "rounded-full px-4",
+                          !connected && "opacity-50",
+                        )}>
+                        <platform.icon className="h-3.5 w-3.5" />
+                        {platform.label}
+                        {draft.selected ? (
+                          <Check className="h-3.5 w-3.5" />
                         ) : null}
-                      </div>
-
-                      <div className="overflow-hidden rounded-2xl border border-border/60 bg-background/80">
-                        {previewSource ? (
-                          previewKind === "image" ? (
-                            <img
-                              src={previewSource}
-                              alt={selectedFile.name}
-                              className="h-48 w-full object-cover"
-                            />
-                          ) : previewKind === "video" ? (
-                            <video
-                              controls
-                              className="h-48 w-full bg-black object-cover"
-                              src={previewSource}
-                            />
-                          ) : previewKind === "audio" ? (
-                            <div className="flex h-48 items-center justify-center p-4">
-                              <audio controls className="w-full" src={previewSource} />
-                            </div>
-                          ) : (
-                            <div className="flex h-48 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-                              <a className="font-medium text-primary hover:underline" href={previewSource} target="_blank" rel="noreferrer">
-                                Open uploaded file
-                              </a>
-                            </div>
-                          )
-                        ) : (
-                          <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-                            Preview will appear here.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="ml-1 text-sm font-medium text-foreground/80">Images (URLs)</label>
-                  <Textarea
-                    value={images}
-                    onChange={(e) => setImages(e.target.value)}
-                    placeholder="One URL per line or comma-separated"
-                    className="mt-2 h-24"
-                  />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">
+                      Platform drafts
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Each social network has its own
+                      editable settings and generated copy.
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="ml-1 text-sm font-medium text-foreground/80">Videos (URLs)</label>
-                  <Textarea
-                    value={videos}
-                    onChange={(e) => setVideos(e.target.value)}
-                    placeholder="One URL per line or comma-separated"
-                    className="mt-2 h-24"
-                  />
-                </div>
-
-                <div>
-                  <label className="ml-1 text-sm font-medium text-foreground/80">Audio (URLs)</label>
-                  <Textarea
-                    value={audios}
-                    onChange={(e) => setAudios(e.target.value)}
-                    placeholder="One URL per line or comma-separated"
-                    className="mt-2 h-24"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="ml-1 text-sm font-medium text-foreground/80">Publish Targets</label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Selected targets will be published later — platform entries are created automatically.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {PLATFORMS.map((p) => (
-                    <span key={p.key} className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-sm">
-                      <span className="font-medium">{p.label}</span>
-                    </span>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {PLATFORMS.map((platform) => (
+                    <PlatformDraftCard
+                      key={platform.key}
+                      platform={platform}
+                      connected={
+                        (renderedLinkedAccounts[
+                          platform.key
+                        ]?.length ?? 0) > 0
+                      }
+                      draft={platformDrafts[platform.key]}
+                      onPostTypeChange={(value) =>
+                        updatePlatformDraft(platform.key, {
+                          postType: value,
+                        })
+                      }
+                      onNotesChange={(value) =>
+                        updatePlatformDraft(platform.key, {
+                          notes: value,
+                        })
+                      }
+                      onGeneratedTextChange={(value) =>
+                        updatePlatformDraft(platform.key, {
+                          generatedText: value,
+                        })
+                      }
+                    />
                   ))}
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3">
-                <Button nativeButton={false} render={<Link href={`/${slug ?? "activestudios"}/dashboard/shots`}>Cancel</Link>} />
-                <Button onClick={handleCreate} disabled={loading || uploadingFile} className="bg-brand text-white">
-                  {loading ? "Creating..." : "Create Shot"}
+              <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-end">
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  render={
+                    <Link
+                      href={`/${slug ?? "activestudios"}/dashboard/shots`}>
+                      Cancel
+                    </Link>
+                  }
+                />
+                <Button
+                  onClick={handleCreate}
+                  disabled={
+                    loading ||
+                    isGenerating ||
+                    pendingUploadCount > 0
+                  }
+                  className="bg-brand text-white">
+                  {loading ? "Creating..." : "Create shot"}
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <div className="space-y-6">
-            <Card>
+          <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+            <Card className="border-border/70 bg-background/85 backdrop-blur">
               <CardHeader>
-                <CardTitle>Composer details</CardTitle>
+                <CardTitle>Composer summary</CardTitle>
                 <CardDescription>
-                  Studio and user context for this composer.
+                  Studio context, upload state, and platform
+                  selection at a glance.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <DetailRow label="Studio name" value={studioName} />
-                <DetailRow label="Studio ID" value={String(studioMemberId ?? "unknown")} />
-                <DetailRow label="User name" value={userName} />
-                <DetailRow label="User ID" value={userId} />
+                <DetailRow
+                  label="Studio"
+                  value={studioName}
+                />
+                <DetailRow
+                  label="Studio ID"
+                  value={String(
+                    studioMemberId ?? "unknown",
+                  )}
+                />
+                <DetailRow
+                  label="Attachments"
+                  value={`${attachments.length} file${attachments.length === 1 ? "" : "s"}`}
+                />
+                <DetailRow
+                  label="Uploads"
+                  value={
+                    pendingUploadCount
+                      ? `${pendingUploadCount} pending`
+                      : "Ready"
+                  }
+                />
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border/70 bg-background/85 backdrop-blur">
               <CardHeader>
-                <CardTitle>File preview rules</CardTitle>
+                <CardTitle>How the drafts work</CardTitle>
                 <CardDescription>
-                  Uploaded media is pushed to R2, then used in the shot payload.
+                  The generate button fills every platform
+                  card with tailored copy.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <PreviewRule icon={ImageIcon} label="Images" text="Image files render inline and are added to the images array." />
-                <PreviewRule icon={Video} label="Videos" text="Video files render with controls and are added to the videos array." />
-                <PreviewRule icon={Mic} label="Audio" text="Audio files render with controls and are added to the audios array." />
-                <PreviewRule icon={Loader2} label="Upload state" text="The shot cannot be created until the selected file finishes uploading." />
+                <PreviewRule
+                  icon={Sparkles}
+                  label="Generate"
+                  text="Creates a platform-specific draft for every social network card."
+                />
+                <PreviewRule
+                  icon={Upload}
+                  label="Paste files"
+                  text="Clipboard images, videos, and audio files upload automatically."
+                />
+                <PreviewRule
+                  icon={File}
+                  label="Multiple files"
+                  text="You can paste or browse several files and keep all previews visible."
+                />
+                <PreviewRule
+                  icon={Loader2}
+                  label="Connected targets"
+                  text="Networks with no linked account remain disabled until you connect one."
+                />
               </CardContent>
             </Card>
           </div>
@@ -453,23 +1134,227 @@ export default function ComposerPage() {
   );
 }
 
-function MetadataPill({
-  label,
-  value,
-  idValue,
+function AttachmentPreviewCard({
+  attachment,
+  onRetry,
+  onRemove,
 }: {
-  label: string;
-  value: string;
-  idValue: string;
+  attachment: ComposerAttachment;
+  onRetry: () => void;
+  onRemove: () => void;
 }) {
+  const statusVariant =
+    attachment.status === "uploaded"
+      ? "secondary"
+      : attachment.status === "error"
+        ? "destructive"
+        : "outline";
+
   return (
-    <div className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">ID: {idValue}</p>
+    <div className="overflow-hidden rounded-3xl border border-border/70 bg-background/85 shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
+      <div className="relative h-40 overflow-hidden bg-muted/20">
+        {attachment.kind === "image" ? (
+          <img
+            src={attachment.previewUrl}
+            alt={attachment.file.name}
+            className="h-full w-full object-cover"
+          />
+        ) : attachment.kind === "video" ? (
+          <video
+            controls
+            className="h-full w-full object-cover bg-black"
+            src={attachment.previewUrl}
+          />
+        ) : attachment.kind === "audio" ? (
+          <div className="flex h-full items-center justify-center p-4">
+            <audio
+              controls
+              className="w-full"
+              src={attachment.previewUrl}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+            <div className="space-y-2">
+              <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground/80" />
+              <p>Unsupported file preview</p>
+            </div>
+          </div>
+        )}
+
+        <div className="absolute right-3 top-3">
+          <Badge variant={statusVariant}>
+            {attachment.status}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              {attachment.file.name}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {attachment.kind} ·{" "}
+              {formatBytes(attachment.file.size)}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRemove}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {attachment.error ? (
+          <p className="text-xs text-destructive">
+            {attachment.error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          {attachment.status === "error" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRetry}>
+              Retry
+            </Button>
+          ) : null}
+          {attachment.publicUrl ? (
+            <a
+              href={attachment.publicUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-medium text-primary hover:underline">
+              Open uploaded file
+            </a>
+          ) : null}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function PlatformDraftCard({
+  platform,
+  connected,
+  draft,
+  onPostTypeChange,
+  onNotesChange,
+  onGeneratedTextChange,
+}: {
+  platform: (typeof PLATFORMS)[number];
+  connected: boolean;
+  draft: PlatformDraft;
+  onPostTypeChange: (value: string) => void;
+  onNotesChange: (value: string) => void;
+  onGeneratedTextChange: (value: string) => void;
+}) {
+  const Icon = platform.icon;
+
+  return (
+    <Card className="border-border/60 bg-background/80">
+      <CardHeader className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-muted/20",
+              )}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-base">
+                {platform.label}
+              </CardTitle>
+              <CardDescription>
+                {PLATFORM_SETTINGS[platform.key].hint}
+              </CardDescription>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <Badge
+              variant={connected ? "secondary" : "outline"}>
+              {connected ? "Connected" : "Locked"}
+            </Badge>
+            <Badge
+              variant={
+                draft.selected ? "default" : "outline"
+              }>
+              {draft.selected ? "Selected" : "Muted"}
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <div>
+          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Post type
+          </label>
+          <NativeSelect
+            className="mt-2 w-full"
+            value={draft.postType}
+            onChange={(event) =>
+              onPostTypeChange(event.target.value)
+            }>
+            {PLATFORM_SETTINGS[platform.key].options.map(
+              (option) => (
+                <NativeSelectOption
+                  key={option}
+                  value={option}>
+                  {option}
+                </NativeSelectOption>
+              ),
+            )}
+          </NativeSelect>
+        </div>
+
+        <div>
+          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Notes for this platform
+          </label>
+          <Textarea
+            value={draft.notes}
+            onChange={(event) =>
+              onNotesChange(event.target.value)
+            }
+            placeholder="Add platform-specific instructions or reminders."
+            className="mt-2 min-h-20 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Generated copy
+          </label>
+          <Textarea
+            value={draft.generatedText}
+            onChange={(event) =>
+              onGeneratedTextChange(event.target.value)
+            }
+            placeholder="Click Generate to fill this draft, then edit it here."
+            className="mt-2 min-h-36 text-sm leading-6"
+          />
+        </div>
+
+        {draft.mediaAssetUrl ? (
+          <a
+            href={draft.mediaAssetUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex text-xs font-medium text-primary hover:underline">
+            Open attached media
+          </a>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -483,7 +1368,9 @@ function DetailRow({
   return (
     <div className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium text-foreground">{value}</span>
+      <span className="text-right font-medium text-foreground">
+        {value}
+      </span>
     </div>
   );
 }
@@ -501,8 +1388,12 @@ function PreviewRule({
     <div className="flex gap-3 rounded-2xl border border-border/60 bg-background/70 p-3">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <div>
-        <p className="font-medium text-foreground">{label}</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">{text}</p>
+        <p className="font-medium text-foreground">
+          {label}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {text}
+        </p>
       </div>
     </div>
   );
@@ -511,7 +1402,10 @@ function PreviewRule({
 function formatBytes(bytes: number) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
-  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
   const value = bytes / 1024 ** index;
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }

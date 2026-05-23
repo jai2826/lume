@@ -12,11 +12,13 @@ import {
 import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import {
+  ArrowLeftIcon,
   ArrowRight,
   FileText,
   Image as ImageIcon,
   Mic,
   Plus,
+  PlusIcon,
   Video,
 } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +27,7 @@ import { PLATFORMS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import DashboardHeader from "@/app/[slug]/_components/DashboardHeader";
 
 export default function ShotsPage() {
   const activeStudio = useAtomValue(activeStudioAtom);
@@ -40,39 +43,25 @@ export default function ShotsPage() {
 
   return (
     <div className="p-8 md:p-12">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-3">
-            <div className="inline-flex w-fit rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-              Shots
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-                Shot library
-              </h1>
-              <p className="mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
-                Review every shot in this studio, open any
-                shot by its URL, and jump into a new shot
-                from the top-right action.
-              </p>
-            </div>
-          </div>
-
-          <Button
-            className="w-full rounded-lg bg-brand text-base text-white shadow-glow transition-all duration-200 hover:bg-brand/90 md:w-auto"
-            nativeButton={false}
-            render={
-              <Link
-                href={
-                  slug
-                    ? `/${slug}/dashboard/composer`
-                    : "/activestudios"
-                }>
-                <Plus className="mr-2 h-5 w-5" /> New Shot
-              </Link>
-            }
-          />
-        </header>
+      <div className="mx-auto max-w-5xl space-y-6">
+        <DashboardHeader
+          tag="Shots"
+          heading="Shot library"
+          description="Review every shot in this studio, open any shot by its URL, and jump into a new shot from the top-right action."
+          CustomButtons={[
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/${slug}/dashboard/composer/`}>
+                  <PlusIcon />
+                 Create Shot
+                </Link>
+              }
+            />,
+          ]}
+        />
 
         {!studioId ? (
           <Card>
@@ -115,9 +104,10 @@ export default function ShotsPage() {
             </CardHeader>
             <CardContent>
               <Button
-              nativeButton={false}
+                nativeButton={false}
                 render={
-                  <Link href={`/${slug}/dashboard/composer`}>
+                  <Link
+                    href={`/${slug}/dashboard/composer`}>
                     <Plus className="mr-2 h-4 w-4" /> Add
                     your first shot
                   </Link>

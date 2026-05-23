@@ -81,7 +81,7 @@ export const getStudioLinkedAccounts = softAuthedQuery({
   args: { studioId: v.id("studios") },
   handler: async (ctx, args) => {
     const user = ctx.user;
-    if (!user) return [];
+    if (!user) return null;
 
     // 1. Verify membership using the fast compound index
     const membership = await ctx.db
@@ -93,7 +93,7 @@ export const getStudioLinkedAccounts = softAuthedQuery({
       )
       .first();
 
-    if (!membership) return []; // UI Query: fail gracefully
+    if (!membership) return null; // UI Query: fail gracefully
 
     // 2. Fetch the keys tied to the STUDIO
     const accounts = await ctx.db

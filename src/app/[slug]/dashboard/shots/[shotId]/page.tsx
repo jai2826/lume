@@ -3,11 +3,11 @@
 import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import {
-  ArrowLeft,
-  Image as ImageIcon,
-  Link2,
-  Mic,
-  Video,
+    ArrowLeft,
+    Image as ImageIcon,
+    Link2,
+    Mic,
+    Video,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -16,11 +16,11 @@ import { LinkedStatus } from "@/app/[slug]/_components/LinkedStatus";
 import { activeStudioAtom } from "@/atom/studioAtoms";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
 } from "@/components/ui/card";
 import { useCachedStudioLinkedAccounts } from "@/hooks/useStudioCache";
 import { PLATFORMS } from "@/lib/constants";
@@ -295,10 +295,27 @@ export default function ShotDetailPage() {
                         </span>
                       </div>
 
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-muted-foreground">
+                        <span className="rounded-full border border-border/60 px-2.5 py-1">
+                          {entry.selected ? "Target selected" : "Target off"}
+                        </span>
+                        {entry.postType ? (
+                          <span className="rounded-full border border-border/60 px-2.5 py-1">
+                            {entry.postType}
+                          </span>
+                        ) : null}
+                      </div>
+
                       <p className="mt-3 text-sm text-muted-foreground">
                         {entry.generatedText ||
                           "No generated copy yet."}
                       </p>
+
+                      {entry.notes ? (
+                        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                          Notes: {entry.notes}
+                        </p>
+                      ) : null}
 
                       {entry.mediaAssetUrl ? (
                         <a

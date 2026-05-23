@@ -2,19 +2,20 @@
 
 import { StudioSwitcher } from "@/components/studio-switcher";
 import {
-    Sidebar,
-    SidebarContent,
+  Sidebar,
+  SidebarContent,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserButton, useUser } from "@clerk/nextjs";
 import {
-    FileText,
-    PenSquare,
-    Settings,
-    Users
+  FileText,
+  PenSquare,
+  Settings,
+  Users,
 } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 import { LumeLogo } from "../../../components/brand/logo"; // Adjust import path as needed
+import Link from "next/link";
 
 const NAV = [
   {
@@ -73,18 +74,17 @@ export default function DashboardSidebar() {
                   const isActive = pathname === href;
 
                   return (
-                    <a
+                    <Link
                       key={item.href}
                       href={href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      className={`flex lg:text-lg items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:bg-sidebar-accent hover:text-accent-foreground"
-                      }`}
-                    >
+                      }`}>
                       <Icon className="h-4 w-4 shrink-0" />
                       <span>{item.label}</span>
-                    </a>
+                    </Link>
                   );
                 })}
               </div>

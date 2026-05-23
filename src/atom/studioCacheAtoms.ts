@@ -3,26 +3,19 @@ import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import type { PlatformKey } from "@/lib/types";
 import type { Doc } from "../../convex/_generated/dataModel";
 
-type StorageLike = {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-  removeItem: (key: string) => void;
+// SSR-safe localStorage wrapper
+const getLocalStorage = () => {
+  if (typeof window === "undefined") {
+    return {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+  }
+  return window.localStorage;
 };
 
-const memoryStorage: StorageLike = {
-  getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
-};
-
-const storage = createJSONStorage<StorageLike>(() =>
-  typeof window === "undefined" ? memoryStorage : window.localStorage,
-);
-
-export type StudioSnapshot = Pick<
-  Doc<"studios">,
-  "_id" | "name" | "slug"
-> & {
+export type StudioSnapshot = Pick<Doc<"studios">, "_id" | "name" | "slug"> & {
   ownerId?: string;
 };
 
@@ -31,10 +24,7 @@ export type LinkedAccountSnapshot = {
   accountName: string;
 };
 
-export type LinkedAccountsSnapshot = Record<
-  PlatformKey,
-  LinkedAccountSnapshot[]
->;
+export type LinkedAccountsSnapshot = Record<PlatformKey, LinkedAccountSnapshot[]>;
 
 export type StudiosCacheState = {
   data: StudioSnapshot[];
@@ -59,19 +49,20 @@ export const EMPTY_LINKED_ACCOUNTS: LinkedAccountsSnapshot = {
   snapchat: [],
 };
 
+// One typed storage instance per atom type — avoids the shared generic conflict
+const studiosStorage = createJSONStorage<StudiosCacheState>(getLocalStorage);
+const linkedAccountsStorage = createJSONStorage<LinkedAccountsCacheState>(getLocalStorage);
+
 export const studiosCacheAtom = atomWithStorage<StudiosCacheState>(
   "lume.cachedStudios",
-  {
-    data: [],
-    updatedAt: 0,
-  },
-  storage,
+  { data: [], updatedAt: 0 },
+  studiosStorage,
 );
 
 export const linkedAccountsCacheAtom = atomWithStorage<LinkedAccountsCacheState>(
   "lume.cachedLinkedAccounts",
   {},
-  storage,
+  linkedAccountsStorage,
 );
 
 export function normalizeLinkedAccounts(

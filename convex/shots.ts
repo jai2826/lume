@@ -9,6 +9,9 @@ import {
 
 const defaultPlatformEntry = () => ({
   status: "idle" as const,
+  selected: false,
+  postType: "",
+  notes: "",
   generatedText: "",
   mediaAssetUrl: "",
 });
