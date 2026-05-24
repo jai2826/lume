@@ -47,7 +47,7 @@ export default function DashboardTopBar({
   const crumbs = pathname?.split("/").filter(Boolean) || [];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-black/5 bg-background/80 backdrop-blur-md">
+    <header className="sticky w-full top-0 z-20 border-b border-black/5 bg-background/80 backdrop-blur-md">
       <div className="flex items-center gap-2 px-4 py-6">
         <div className=" flex items-center text-sm text-muted-foreground ">
           <SidebarTrigger />

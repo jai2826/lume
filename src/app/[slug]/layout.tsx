@@ -18,7 +18,7 @@ export default function StudioLayout({
         <StudioSlugSync />
         <DashboardSidebar />
         <SidebarInset>
-          <div className="flex flex-1 flex-col h-screen overflow-hidden">
+          <div className="flex flex-1 flex-col h-screen ">
             <DashboardTopBar />
             <BrandCanvas className="min-h-full">
               <main className="flex-1 overflow-y-auto">

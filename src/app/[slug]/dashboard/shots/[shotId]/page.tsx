@@ -3,11 +3,11 @@
 import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import {
-    ArrowLeft,
-    Image as ImageIcon,
-    Link2,
-    Mic,
-    Video,
+  ArrowLeft,
+  Image as ImageIcon,
+  Link2,
+  Mic,
+  Video,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -16,11 +16,11 @@ import { LinkedStatus } from "@/app/[slug]/_components/LinkedStatus";
 import { activeStudioAtom } from "@/atom/studioAtoms";
 import { Button } from "@/components/ui/button";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { useCachedStudioLinkedAccounts } from "@/hooks/useStudioCache";
 import { PLATFORMS } from "@/lib/constants";
@@ -141,8 +141,7 @@ export default function ShotDetailPage() {
           <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
-                          nativeButton={false}
-
+              nativeButton={false}
               render={
                 <Link href={`/${slug}/dashboard/shots`}>
                   <ArrowLeft className="mr-2 h-4 w-4" />{" "}
@@ -152,10 +151,9 @@ export default function ShotDetailPage() {
             />
             <Button
               className="bg-brand text-white hover:bg-brand/90"
-                          nativeButton={false}
-
+              nativeButton={false}
               render={
-                <Link href={`/${slug}/composer`}>
+                <Link href={`/${slug}/dashboard/composer`}>
                   Add new shot
                 </Link>
               }
@@ -297,7 +295,9 @@ export default function ShotDetailPage() {
 
                       <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-muted-foreground">
                         <span className="rounded-full border border-border/60 px-2.5 py-1">
-                          {entry.selected ? "Target selected" : "Target off"}
+                          {entry.selected
+                            ? "Target selected"
+                            : "Target off"}
                         </span>
                         {entry.postType ? (
                           <span className="rounded-full border border-border/60 px-2.5 py-1">

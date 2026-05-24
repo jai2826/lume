@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file");
     const studioId = formData.get("studioId");
 
+    
+
+
     if (!(file instanceof File) || typeof studioId !== "string" || !studioId) {
       return NextResponse.json(
         { error: "file and studioId are required" },
