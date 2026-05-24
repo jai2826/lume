@@ -127,7 +127,7 @@ export function LinkedStatus({
                   <div
                     className={cn(
                       "grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white shadow-sm",
-                      `bg-gradient-to-br ${platform.accent}`,
+                      `bg-linear-to-br ${platform.accent}`,
                     )}>
                     <Icon className="h-5 w-5" />
                   </div>

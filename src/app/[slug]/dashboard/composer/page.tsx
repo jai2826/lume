@@ -71,6 +71,16 @@ import type { PlatformKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export default function ComposerPage() {
   const router = useRouter();
@@ -712,12 +722,12 @@ export default function ComposerPage() {
         />
 
         <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-          <Card className="rounded-2xl">
-            <CardHeader className=" border-b border-border/60 bg-muted/20">
+          <Card className="rounded-2xl pt-0 ">
+            <CardHeader className=" border-b pt-4 border-border/60 bg-muted/20">
               <div className=" flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-1.5">
                   <CardTitle>Compose with files</CardTitle>
-                  <CardDescription className="line-clamp-2">
+                  <CardDescription className="lg:line-clamp-2">
                     Paste images, videos, or audio directly
                     into the prompt area. Multiple files
                     upload together and stay visible as
@@ -761,7 +771,7 @@ export default function ComposerPage() {
               </div>
 
               <div
-                className="rounded-3xl border border-dashed border-border/70 bg-background/70 p-4"
+                className="rounded-2xl border border-dashed border-border/70 bg-background/70 p-4"
                 onDrop={handleDrop}
                 onDragOver={(event) =>
                   event.preventDefault()
@@ -891,12 +901,12 @@ export default function ComposerPage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl">
-            <CardHeader className=" border-b border-border/60 bg-muted/20">
-              <div className=" flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <Card className="rounded-2xl pt-0">
+            <CardHeader className="pt-4 border-b border-border/60 bg-muted/20">
+              <div className=" flex  gap-4  items-start justify-between">
                 <div className="space-y-1.5">
                   <CardTitle>Publish targets</CardTitle>
-                  <CardDescription className="line-clamp-2">
+                  <CardDescription className="lg:line-clamp-2 ">
                     Toggle the social networks you want to
                     publish to. Unconnected networks stay
                     disabled.
@@ -928,35 +938,45 @@ export default function ComposerPage() {
               </div>
             </CardHeader>
             <CardContent className="border-b pb-4 flex flex-wrap gap-2">
-              {PLATFORMS.map((platform) => {
-                const draft = platformDrafts[platform.key];
-                const connected =
-                  (renderedLinkedAccounts[platform.key]
-                    ?.length ?? 0) > 0;
+              <div className="flex flex-wrap gap-1">
+                {PLATFORMS.map((platform) => {
+                  const draft =
+                    platformDrafts[platform.key];
+                  const connected =
+                    (renderedLinkedAccounts[platform.key]
+                      ?.length ?? 0) > 0;
 
-                return (
-                  <Button
-                    key={platform.key}
-                    type="button"
-                    size="sm"
-                    disabled={!connected}
-                    onClick={() =>
-                      toggleTarget(platform.key)
-                    }
-                    className={cn(
-                      "rounded-full px-4 bg-primary hover:cursor-pointer",
-                      !connected && "opacity-50 ",
-                      draft.selected &&
-                        "bg-brand text-white",
-                    )}>
-                    <platform.icon className="h-3.5 w-3.5" />
-                    {platform.label}
-                    {draft.selected ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : null}
-                  </Button>
-                );
-              })}
+                  return (
+                    <Button
+                      key={platform.key}
+                      type="button"
+                      size="sm"
+                      disabled={!connected}
+                      onClick={() =>
+                        toggleTarget(platform.key)
+                      }
+                      className={cn(
+                        "rounded-full px-4 bg-primary hover:cursor-pointer",
+                        !connected &&
+                          "opacity-50 cursor-not-allowed",
+                        draft.selected &&
+                          "bg-brand text-white",
+                      )}>
+                      <platform.icon className="h-3.5 w-3.5" />
+                      {platform.label}
+                      {draft.selected ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : null}
+                    </Button>
+                  );
+                })}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Always check the type of each social media
+                  draft before generating.
+                </p>
+              </div>
             </CardContent>
             <CardContent>
               <div className="space-y-4">
@@ -972,7 +992,7 @@ export default function ComposerPage() {
                   </div>
                 </div>
 
-                <div className="grid ">
+                <div className="flex flex-col gap-4">
                   {PLATFORMS.map((platform) => {
                     const draft =
                       platformDrafts[platform.key];
@@ -1112,7 +1132,7 @@ function AttachmentPreviewCard({
         : "outline";
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border/70 bg-background/85 shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
+    <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/85 shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
       <div className="relative h-40 overflow-hidden bg-muted/20">
         {attachment.kind === "image" ? (
           <img
@@ -1223,13 +1243,14 @@ function PlatformDraftCard({
   }
 
   return (
-    <Card className="border-border/60 bg-background/80">
+    <Card className="pb-0 border-border/60 bg-background/80 rounded-2xl">
       <CardHeader className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-muted/20",
+                "grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white shadow-sm",
+                `bg-linear-to-br ${platform.accent}`,
               )}>
               <Icon className="h-5 w-5" />
             </div>
@@ -1258,33 +1279,44 @@ function PlatformDraftCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent
+        className={cn(
+          "space-y-4 transition-all duration-300 ease-in-out overflow-hidden",
+          draft.selected
+            ? "max-h-200 opacity-100"
+            : "max-h-0 opacity-0 py-0",
+        )}>
         <div>
-          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <Label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Post type
-          </label>
-          <NativeSelect
-            className="mt-2 w-full"
+          </Label>
+          <Select
             value={draft.postType}
-            onChange={(event) =>
-              onPostTypeChange(event.target.value)
+            onValueChange={(value) =>
+              onPostTypeChange(value!)
             }>
-            {PLATFORM_SETTINGS[platform.key].options.map(
-              (option) => (
-                <NativeSelectOption
-                  key={option}
-                  value={option}>
-                  {option}
-                </NativeSelectOption>
-              ),
-            )}
-          </NativeSelect>
+            <SelectTrigger className="mt-2 rounded-sm  w-full">
+              <SelectValue placeholder="Select post type" />
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false} className={"m-0 p-2  rounded-sm"}>
+              {PLATFORM_SETTINGS[platform.key].options.map(
+                (type) => (
+                  <SelectItem
+                  className={"rounded-sm! hover:bg-accent/50 p-2 my-0.5"}
+                    key={type}
+                    value={type}>
+                    {type}
+                  </SelectItem>
+                ),
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
-          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <Label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Notes for this platform
-          </label>
+          </Label>
           <Textarea
             value={draft.notes}
             onChange={(event) =>
@@ -1295,7 +1327,7 @@ function PlatformDraftCard({
           />
         </div>
 
-        <div>
+        <div className={" mb-4"}>
           <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Generated copy
           </label>

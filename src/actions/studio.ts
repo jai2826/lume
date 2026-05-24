@@ -19,7 +19,7 @@ export async function setLastActiveStudio(
     },
   });
 
-  revalidatePath("/", "layout");
+  
 }
 
 export async function clearLastActiveStudio() {
@@ -35,5 +35,5 @@ export async function clearLastActiveStudio() {
     },
   });
 
-  revalidatePath("/", "layout");
+  
 }

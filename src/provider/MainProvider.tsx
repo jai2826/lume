@@ -2,7 +2,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ConvexClientProvider from "@/provider/ConvexClientProvider";
 import { JotaiProvider } from "@/provider/JotaiProvider";
-import { StudioProvider } from "@/provider/StudioHydrationProvider";
 
 import { ClerkProvider } from "@clerk/nextjs";
 import { auth, clerkClient } from "@clerk/nextjs/server";
@@ -37,12 +36,10 @@ export async function MainProvider({
       afterSignOutUrl={"/"}>
       <ConvexClientProvider>
         <JotaiProvider>
-          <StudioProvider initialStudio={initialStudio}>
             <TooltipProvider>
               <Toaster />
               {children}
             </TooltipProvider>
-          </StudioProvider>
         </JotaiProvider>
       </ConvexClientProvider>
     </ClerkProvider>
