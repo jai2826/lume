@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { MainProvider } from "@/provider/MainProvider";
 import "./globals.css";
 
-import MarketingNavbar from "@/components/layout/Marketing-Navbar";
 import {
   Noto_Serif_Georgian as Georgia,
   Inter,
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
   description: "Social media distribution for creators",
 };
 
-export const dynamic = "force-dynamic";
+
 
 export default function RootLayout({
   children,

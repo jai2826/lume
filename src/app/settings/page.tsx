@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import Link from "next/link";
 import type { ComponentType } from "react";
@@ -13,8 +12,7 @@ import {
 } from "react-icons/fa6";
 
 import { activeStudioAtom } from "@/atom/studioAtoms";
-import { api } from "../../../convex/_generated/api";
-import { Id } from "../../../convex/_generated/dataModel";
+import { useCachedStudioLinkedAccounts } from "@/hooks/useStudioCache";
 
 type Platform = "instagram" | "youtube" | "x" | "tiktok" | "snapchat";
 
@@ -30,12 +28,7 @@ export default function SettingsPage() {
   const activeStudio = useAtomValue(activeStudioAtom);
   const studioId = activeStudio?.studioId;
 
-  const accounts = useQuery(
-    api.auth.getStudioLinkedAccounts,
-    studioId
-      ? { studioId: studioId as Id<"studios"> }
-      : "skip",
-  );
+  const { accounts, isLoading } = useCachedStudioLinkedAccounts(studioId);
 
   if (!studioId) {
     return (
@@ -54,22 +47,11 @@ export default function SettingsPage() {
     );
   }
 
-  if (accounts === undefined) {
+  if (isLoading) {
     return (
       <div className="mx-auto max-w-5xl p-12">
         <h1 className="mb-4 text-4xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Loading connected accounts...</p>
-      </div>
-    );
-  }
-
-  if (accounts === null) {
-    return (
-      <div className="mx-auto max-w-5xl p-12">
-        <h1 className="mb-4 text-4xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">
-          Unable to load account connections for this studio.
-        </p>
       </div>
     );
   }

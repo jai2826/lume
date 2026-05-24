@@ -9,9 +9,33 @@ import {
 
 const defaultPlatformEntry = () => ({
   status: "idle" as const,
+  selected: false,
+  postType: "",
+  notes: "",
   generatedText: "",
   mediaAssetUrl: "",
 });
+
+async function requireStudioMembership(
+  ctx: Parameters<typeof requireAuth>[0],
+  studioId: string,
+) {
+  const { userSession } = await requireAuth(ctx);
+
+  const membership = await ctx.db
+    .query("studio_members")
+    .withIndex("by_user", (q) =>
+      q.eq("userId", userSession.subject),
+    )
+    .filter((q) => q.eq(q.field("studioId"), studioId))
+    .first();
+
+  if (!membership) {
+    throw new Error("Unauthorized: Not a member of this studio");
+  }
+
+  return { userSession };
+}
 
 /** Live dashboard document: latest shot, or `shotId` when deep-linked after compose. */
 export const dashboardShot = query({
@@ -56,6 +80,38 @@ export const dashboardShot = query({
     }
 
     return latestShot;
+  },
+});
+
+export const listStudioShots = query({
+  args: { studioId: v.id("studios") },
+  handler: async (ctx, { studioId }) => {
+    await requireStudioMembership(ctx, studioId);
+
+    const shots = await ctx.db
+      .query("shots")
+      .withIndex("by_studio", (q) =>
+        q.eq("studioId", studioId),
+      )
+      .collect();
+
+    return shots.sort(
+      (left, right) => right._creationTime - left._creationTime,
+    );
+  },
+});
+
+export const getShotById = query({
+  args: { shotId: v.id("shots") },
+  handler: async (ctx, { shotId }) => {
+    const shot = await ctx.db.get(shotId);
+    if (!shot) {
+      return null;
+    }
+
+    await requireStudioMembership(ctx, shot.studioId);
+
+    return shot;
   },
 });
 

@@ -2,16 +2,33 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-/* V4 Theme Configuration */
+/* V4 Theme Configuration - Single Theme Optimized */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Fonts: Redundancies removed */
+  --font-sans: "Inter", system-ui, sans-serif;
   --font-display: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
 
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  /* Direct Color Definitions.
+     Removing var() indirection fixes VS Code IntelliSense instantly. 
+  */
+  --color-background: hsl(40 30% 98%);
+  --color-foreground: hsl(220 10% 25%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(220 10% 25%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(220 10% 25%);
+  --color-primary: hsl(220 15% 18%);
+  --color-primary-foreground: hsl(40 30% 98%);
+  --color-secondary: hsl(40 15% 95%);
+  --color-secondary-foreground: hsl(220 10% 25%);
+  --color-muted: hsl(40 15% 95%);
+  --color-muted-foreground: hsl(220 8% 46%);
+  --color-accent: hsl(40 20% 94%);
+  --color-accent-foreground: hsl(220 10% 25%);
+  --color-destructive: hsl(0 70% 50%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(40 10% 90%);
+  --color-input: hsl(40 10% 90%);
 
   /* Electric Magenta Accents */
   --color-brand: #FA0A61;
@@ -21,37 +38,25 @@
   --color-brand-500: #FA0A61;
   --color-brand-600: #E00856;
 
-  /* Shadcn Semantic Colors */
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
+  /* Hard-wired active states to your Brand color single source of truth */
+  --color-ring: var(--color-brand);
+  --color-sidebar-ring: var(--color-brand);
+  --color-sidebar-primary: var(--color-brand);
 
   /* Sidebar Colors */
-  --color-sidebar: hsl(var(--sidebar-background));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-sidebar: hsl(40 30% 99%);
+  --color-sidebar-foreground: hsl(220 10% 25%);
+  --color-sidebar-primary-foreground: hsl(0 0% 100%);
+  --color-sidebar-accent: hsl(338 100% 97%);
+  --color-sidebar-accent-foreground: var(--color-brand);
+  --color-sidebar-border: hsl(40 10% 90%);
 
-  /* Radii & Shadows */
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  /* Radii */
+  --radius-lg: 1rem;
+  --radius-md: calc(1rem - 2px);
+  --radius-sm: calc(1rem - 4px);
 
+  /* Shadows */
   --shadow-feather: 0 1px 2px rgba(17,24,39,0.04), 0 8px 24px -12px rgba(17,24,39,0.08);
   --shadow-soft: 0 2px 6px rgba(17,24,39,0.04), 0 20px 40px -20px rgba(17,24,39,0.12);
   --shadow-glow: 0 0 0 1px rgba(250,10,97,0.15), 0 12px 40px -12px rgba(250,10,97,0.35);
@@ -76,38 +81,6 @@
 }
 
 @layer base {
-  :root {
-    /* Zen Canvas palette */
-    --background: 40 30% 98%; 
-    --foreground: 220 10% 25%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 10% 25%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 10% 25%;
-    --primary: 220 15% 18%;
-    --primary-foreground: 40 30% 98%;
-    --secondary: 40 15% 95%;
-    --secondary-foreground: 220 10% 25%;
-    --muted: 40 15% 95%;
-    --muted-foreground: 220 8% 46%;
-    --accent: 40 20% 94%;
-    --accent-foreground: 220 10% 25%;
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 40 10% 90%;
-    --input: 40 10% 90%;
-    --ring: 338 96% 51%;
-    --radius: 1rem;
-    --sidebar-background: 40 30% 99%;
-    --sidebar-foreground: 220 10% 25%;
-    --sidebar-primary: 338 96% 51%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 338 100% 97%;
-    --sidebar-accent-foreground: 338 96% 51%;
-    --sidebar-border: 40 10% 90%;
-    --sidebar-ring: 338 96% 51%;
-  }
-
   * { 
     @apply border-border; 
   }
@@ -133,5 +106,6 @@
     background-size: 32px 32px;
   }
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
+  /* Updated to use the new direct variable */
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 9999px; }
 }

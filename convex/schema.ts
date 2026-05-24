@@ -13,6 +13,9 @@ export const shotPlatformEntryValidator = v.object({
     v.literal("published"),
     v.literal("failed"),
   ),
+  selected: v.optional(v.boolean()),
+  postType: v.optional(v.string()),
+  notes: v.optional(v.string()),
   generatedText: v.optional(v.string()), // Optional until generation is complete
   mediaAssetUrl: v.optional(v.string()), // Optional until generation is complete
 });
@@ -49,8 +52,7 @@ export default defineSchema({
     name: v.string(),
     ownerId: v.string(),
     slug: v.string(),
-    // Single reusable invite code tied to the studio
-    inviteCode: v.string(),
+    inviteCode: v.string(), // Single reusable code for simplicity
   })
     .index("by_owner", ["ownerId"])
     .index("by_slug", ["slug"])
@@ -67,7 +69,9 @@ export default defineSchema({
     ),
   })
     .index("by_studio", ["studioId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_role", ["role"])
+    .index("by_user_and_studio", ["userId", "studioId"]), // ADD THIS
 
   // 4. Pending join requests created when a user submits an invite code.
   // Owners can approve a request and assign a role at acceptance time.
@@ -75,7 +79,11 @@ export default defineSchema({
     studioId: v.id("studios"),
     userId: v.string(),
     displayName: v.optional(v.string()),
-    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("rejected"),
+    ),
     createdAt: v.number(),
   }).index("by_studio", ["studioId"]),
 
@@ -103,6 +111,34 @@ export default defineSchema({
       "platform",
       "platformAccountId",
     ]),
+
+  // 4b. Pending OAuth handoff records for Instagram and YouTube.
+  // The callback resolves state against this table instead of cookies.
+  pending_oauth_transactions: defineTable({
+    stateToken: v.string(),
+    platform: v.union(
+      v.literal("instagram"),
+      v.literal("youtube"),
+    ),
+    userId: v.string(),
+    studioId: v.id("studios"),
+    studioSlug: v.optional(v.string()),
+    requestedScopes: v.array(v.string()),
+    authEndpoint: v.string(),
+    callbackPath: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("completed"),
+      v.literal("failed"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+    failureReason: v.optional(v.string()),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_state", ["stateToken"])
+    .index("by_user_platform", ["userId", "platform"]),
 
   // 5. THE CONTENT (Shots)
   shots: defineTable({

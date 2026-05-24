@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 // import { LandingShowcaseBento } from "@/components/marketing/landing-showcase-bento";
-import { cn } from "@/lib/utils";
-import { currentUser } from "@clerk/nextjs/server";
 import GetStartedButton from "@/app/(marketing)/_components/get-started-button";
 import OpenStudioButton from "@/app/(marketing)/_components/open-studio-button";
+import { BrandCanvas } from "@/components/brand/BrandCanvas";
+import { cn } from "@/lib/utils";
+import { currentUser } from "@clerk/nextjs/server";
 
 export const metadata: Metadata = {
   title: "Lume — Distribution for creators who curate",
@@ -27,18 +28,8 @@ export default async function MarketingLandingPage() {
     (user?.publicMetadata
       ?.lastActiveStudioSlug as string) ?? "";
 
-
   return (
-    <div className="relative flex flex-1 flex-col overflow-x-hidden bg-background">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_12%_8%,rgba(250,10,97,0.12),transparent_35%),radial-gradient(circle_at_88%_22%,rgba(250,10,97,0.08),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.9)_0%,rgba(255,255,255,1)_100%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 bg-grid opacity-35"
-      />
-
+    <BrandCanvas>
       <section className="relative z-[1] mx-auto flex w-full max-w-[1400px] flex-col px-6 pb-24 pt-14 ">
         <header className="rounded-[2.5rem] border border-border/70 bg-card/85 px-8 py-14 text-center shadow-soft backdrop-blur-md sm:px-12 sm:py-18 lg:px-16">
           <span className="mx-auto inline-flex rounded-full border border-brand/20 bg-brand/10 px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.32em] text-foreground/80 animate-in fade-in slide-in-from-bottom-3 duration-700">
@@ -110,6 +101,6 @@ export default async function MarketingLandingPage() {
           </Link>
         </div>
       </footer>
-    </div>
+    </BrandCanvas>
   );
 }

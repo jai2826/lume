@@ -222,9 +222,7 @@ export const updateStudio = mutation({
 export const deleteStudio = mutation({
   args: { studioId: v.id("studios") },
   handler: async (ctx, args) => {
-    
-      await requireStudioAdmin(ctx, args.studioId);
-
+    await requireStudioAdmin(ctx, args.studioId);
 
     const [memberships, socialKeys, shots, joinRequests] =
       await Promise.all([
@@ -273,5 +271,74 @@ export const deleteStudio = mutation({
     await ctx.db.delete(args.studioId);
 
     return { success: true };
+  },
+});
+
+/**
+ * Get a studio by its slug.
+ * This is used by StudioSlugSync to fetch the full studio data.
+ *
+ * Security:
+ * - Verifies the user is a member of this studio
+ * - Prevents users from accessing studios they're not part of
+ * - Returns studio data only if access is granted
+ */
+export const getStudioBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    // Get the authenticated user
+    const { userSession } = await getAuthUserId(ctx);
+    if (!userSession) {
+      return null;
+    }
+
+    // Find the studio by slug
+    const studio = await ctx.db
+      .query("studios")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .first();
+
+    if (!studio) return null; // was: throw new Error("Studio not found")
+
+    // Verify the user is a member of this studio
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", userSession.subject),
+      )
+      .filter((q) => q.eq(q.field("studioId"), studio._id))
+      .first();
+
+    if (!membership) return null;
+
+    // Return the studio data
+    return membership ? studio : null;
+  },
+});
+
+export const getStudioById = query({
+  args: { studioId: v.id("studios") },
+  handler: async (ctx, args) => {
+    const { userSession } = await getAuthUserId(ctx);
+    if (!userSession) {
+      return null;
+    }
+
+    const studio = await ctx.db.get(args.studioId);
+    if (!studio) {
+      return null;
+    }
+
+    const membership = await ctx.db
+      .query("studio_members")
+      .withIndex("by_user", (q) =>
+        q.eq("userId", userSession.subject),
+      )
+      .filter((q) => q.eq(q.field("studioId"), studio._id))
+      .first();
+
+    if (!membership) return null;  
+
+    return studio;
   },
 });
