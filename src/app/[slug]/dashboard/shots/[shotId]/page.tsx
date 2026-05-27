@@ -1,27 +1,40 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import {
-  ArrowLeft,
-  Image as ImageIcon,
-  Link2,
-  Mic,
-  Video,
+    ArrowLeft,
+    Image as ImageIcon,
+    Link2,
+    Mic,
+    Video,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { LinkedStatus } from "@/app/[slug]/_components/LinkedStatus";
 import { activeStudioAtom } from "@/atom/studioAtoms";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useCachedStudioLinkedAccounts } from "@/hooks/useStudioCache";
 import { PLATFORMS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -35,13 +48,23 @@ export default function ShotDetailPage() {
   const studioId = activeStudio?.studioId;
   const slug = params.slug as string;
   const shotId = params.shotId as string;
+  const [deleteTarget, setDeleteTarget] = useState<{
+    _id: Id<"shots">;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] =
+    useState("");
 
   const shot = useQuery(
     api.shots.getShotById,
     shotId ? { shotId: shotId as Id<"shots"> } : "skip",
   );
+
+  const deleteShot = useMutation(api.shots.deleteShot);
   const { accounts: linkedAccounts } =
     useCachedStudioLinkedAccounts(studioId);
+
 
   if (!studioId) {
     return (
@@ -82,6 +105,52 @@ export default function ShotDetailPage() {
       </div>
     );
   }
+
+  const handleDeleteShot = async () => {
+    if (!deleteTarget) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteShot({
+        shotId: deleteTarget._id,
+      });
+
+      if (result.mediaUrls.length) {
+        const response = await fetch(
+          "/api/uploads/r2/delete",
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              studioId,
+              urls: result.mediaUrls,
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Shot deleted, but media cleanup failed.",
+          );
+        }
+      }
+
+      toast.success("Shot deleted.");
+      router.replace(`/${slug}/dashboard/shots`);
+      setDeleteTarget(null);
+      setDeleteConfirmation("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete shot.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (!shot) {
     return (
@@ -151,13 +220,17 @@ export default function ShotDetailPage() {
             />
             <Button
               className="bg-brand text-white hover:bg-brand/90"
-              nativeButton={false}
-              render={
-                <Link href={`/${slug}/dashboard/composer`}>
-                  Add new shot
-                </Link>
-              }
-            />
+              disabled={isDeleting}
+              onClick={() =>
+                setDeleteTarget({
+                  _id: shot._id,
+                  name:
+                    shot.title ||
+                    `Shot ${shot._id.slice(-8)}`,
+                })
+              }>
+              Delete Shot
+            </Button>
           </div>
         </div>
 
@@ -280,17 +353,29 @@ export default function ShotDetailPage() {
                     <div
                       key={platform.key}
                       className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="font-semibold text-foreground">
                           {platform.label}
                         </h3>
-                        <span
-                          className={cn(
-                            "rounded-full px-2.5 py-1 text-[11px] font-medium",
-                            statusStyles[entry.status],
-                          )}>
-                          {entry.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-[11px] font-medium",
+                              statusStyles[entry.status],
+                            )}>
+                            {entry.status}
+                          </span>
+                          <Button
+                            
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-full px-3 text-xs">
+                            <Link
+                              href={`/${slug}/dashboard/post?shotId=${shot._id}&platform=${platform.key}`}>
+                              Post
+                            </Link>
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-muted-foreground">
@@ -310,6 +395,46 @@ export default function ShotDetailPage() {
                         {entry.generatedText ||
                           "No generated copy yet."}
                       </p>
+
+                      {entry.aiPrompt ? (
+                        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                          AI prompt: {entry.aiPrompt}
+                        </p>
+                      ) : null}
+
+                      {entry.generatedImageUrl ? (
+                        <div className="mt-3 overflow-hidden rounded-2xl border border-border/60 bg-muted/20">
+                          <img
+                            src={entry.generatedImageUrl}
+                            alt={`${platform.label} generated image`}
+                            className="h-auto w-full object-cover"
+                          />
+                          <a
+                            href={entry.generatedImageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex px-3 py-2 text-xs font-medium text-primary hover:underline">
+                            Open generated image
+                          </a>
+                        </div>
+                      ) : null}
+
+                      {entry.referenceImageUrls?.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {entry.referenceImageUrls.map(
+                            (url, index) => (
+                              <a
+                                key={`${url}-${index}`}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-full border border-border/60 px-2.5 py-1 text-xs font-medium text-primary hover:underline">
+                                Reference {index + 1}
+                              </a>
+                            ),
+                          )}
+                        </div>
+                      ) : null}
 
                       {entry.notes ? (
                         <p className="mt-3 text-xs leading-5 text-muted-foreground">
@@ -343,6 +468,59 @@ export default function ShotDetailPage() {
           />
         </div>
       </div>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteConfirmation("");
+          }
+        }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete shot
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{" "}
+              <span className="font-semibold text-foreground">
+                {deleteTarget?.name}
+              </span>{" "}
+              and all of its media files. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground/80">
+                To confirm, type the shot name below:
+              </label>
+              <Input
+                placeholder={deleteTarget?.name || ""}
+                value={deleteConfirmation}
+                onChange={(e) =>
+                  setDeleteConfirmation(e.target.value)
+                }
+                className="h-11 border-border bg-background/80 shadow-feather"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteShot}
+              disabled={
+                isDeleting ||
+                deleteConfirmation !== deleteTarget?.name
+              }>
+              {isDeleting ? "Deleting..." : "Delete shot"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

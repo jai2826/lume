@@ -178,7 +178,7 @@ export default function ActiveStudiosPage() {
       />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-6 py-8 sm:px-8 lg:px-10">
-        <div className="flex flex-col gap-4 rounded-[2rem] border border-border/70 bg-card/90 p-6 shadow-soft backdrop-blur-md sm:p-8">
+        <div className="flex flex-col gap-4 rounded-4xl border border-border/70 bg-card/90 p-6 shadow-soft backdrop-blur-md sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="inline-flex rounded-full border border-brand/15 bg-brand/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-foreground/75">

@@ -3,31 +3,30 @@
 import { activeStudioAtom } from "@/atom/studioAtoms";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
 } from "@/components/ui/card";
 import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
 import {
-  ArrowLeftIcon,
-  ArrowRight,
-  FileText,
-  Image as ImageIcon,
-  Mic,
-  Plus,
-  PlusIcon,
-  Video,
+    ArrowRight,
+    FileText,
+    Image as ImageIcon,
+    Mic,
+    Plus,
+    PlusIcon,
+    Video,
 } from "lucide-react";
 import Link from "next/link";
 
+import DashboardHeader from "@/app/[slug]/_components/DashboardHeader";
 import { PLATFORMS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
-import DashboardHeader from "@/app/[slug]/_components/DashboardHeader";
 
 export default function ShotsPage() {
   const activeStudio = useAtomValue(activeStudioAtom);
@@ -50,6 +49,7 @@ export default function ShotsPage() {
           description="Review every shot in this studio, open any shot by its URL, and jump into a new shot from the top-right action."
           CustomButtons={[
             <Button
+              key="create-shot"
               variant="outline"
               nativeButton={false}
               render={
@@ -209,6 +209,22 @@ export default function ShotsPage() {
                             {entry.generatedText ||
                               "No generated copy yet."}
                           </p>
+
+                          {entry.aiPrompt ? (
+                            <p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">
+                              AI prompt: {entry.aiPrompt}
+                            </p>
+                          ) : null}
+
+                          {entry.generatedImageUrl ? (
+                            <a
+                              href={entry.generatedImageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">
+                              Open generated image
+                            </a>
+                          ) : null}
                         </div>
                       );
                     })}

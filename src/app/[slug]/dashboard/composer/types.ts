@@ -28,6 +28,9 @@ export type PlatformDraft = {
   postType: string;
   notes: string;
   generatedText: string;
+  aiPrompt: string;
+  generatedImageUrl: string;
+  referenceImageUrls: string[];
   status: "idle" | "generating" | "ready";
   mediaAssetUrl: string;
 };
@@ -48,6 +51,9 @@ export  type ShotPlatformPayload = {
   postType?: string;
   notes?: string;
   generatedText?: string;
+  aiPrompt?: string;
+  generatedImageUrl?: string;
+  referenceImageUrls?: string[];
   mediaAssetUrl?: string;
 };
 

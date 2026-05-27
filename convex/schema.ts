@@ -17,7 +17,11 @@ export const shotPlatformEntryValidator = v.object({
   postType: v.optional(v.string()),
   notes: v.optional(v.string()),
   generatedText: v.optional(v.string()), // Optional until generation is complete
-  mediaAssetUrl: v.optional(v.string()), // Optional until generation is complete
+  aiPrompt: v.optional(v.string()),
+  generatedImageUrl: v.optional(v.string()),
+  referenceImageUrls: v.optional(v.array(v.string())),
+  mediaAssetUrl: v.optional(v.string()),
+   // Optional until generation is complete
 });
 
 export const shotPlatformsValidator = v.object({

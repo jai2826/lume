@@ -1,10 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-import { requireAuth } from "./lib/utils";
+import { isStudioAdmin, requireAuth } from "./lib/utils";
 import {
-    shotInputsValidator,
-    shotPlatformsValidator,
+  shotInputsValidator,
+  shotPlatformsValidator,
 } from "./schema";
 
 const defaultPlatformEntry = () => ({
@@ -13,8 +13,85 @@ const defaultPlatformEntry = () => ({
   postType: "",
   notes: "",
   generatedText: "",
+  aiPrompt: "",
+  generatedImageUrl: "",
+  referenceImageUrls: [],
   mediaAssetUrl: "",
 });
+
+const defaultShotPlatforms = () => ({
+  x: defaultPlatformEntry(),
+  instagram: defaultPlatformEntry(),
+  youtube: defaultPlatformEntry(),
+  tiktok: defaultPlatformEntry(),
+  snapchat: defaultPlatformEntry(),
+});
+
+const normalizeShotPlatforms = (
+  platforms?: typeof shotPlatformsValidator.type,
+) => {
+  const defaults = defaultShotPlatforms();
+
+  if (!platforms) {
+    return defaults;
+  }
+
+  return {
+    x: { ...defaults.x, ...platforms.x },
+    instagram: {
+      ...defaults.instagram,
+      ...platforms.instagram,
+    },
+    youtube: {
+      ...defaults.youtube,
+      ...platforms.youtube,
+    },
+    tiktok: {
+      ...defaults.tiktok,
+      ...platforms.tiktok,
+    },
+    snapchat: {
+      ...defaults.snapchat,
+      ...platforms.snapchat,
+    },
+  };
+};
+
+function collectShotMediaUrls(shot: {
+  inputs: {
+    images?: string[];
+    videos?: string[];
+    audios?: string[];
+  };
+  platforms: Record<
+    string,
+    {
+      generatedImageUrl?: string;
+      referenceImageUrls?: string[];
+      mediaAssetUrl?: string;
+    }
+  >;
+}) {
+  const urls = new Set<string>();
+
+  shot.inputs.images?.forEach((url) => urls.add(url));
+  shot.inputs.videos?.forEach((url) => urls.add(url));
+  shot.inputs.audios?.forEach((url) => urls.add(url));
+
+  Object.values(shot.platforms).forEach((entry) => {
+    if (entry.generatedImageUrl) {
+      urls.add(entry.generatedImageUrl);
+    }
+
+    entry.referenceImageUrls?.forEach((url) => urls.add(url));
+
+    if (entry.mediaAssetUrl) {
+      urls.add(entry.mediaAssetUrl);
+    }
+  });
+
+  return [...urls];
+}
 
 async function requireStudioMembership(
   ctx: Parameters<typeof requireAuth>[0],
@@ -31,7 +108,9 @@ async function requireStudioMembership(
     .first();
 
   if (!membership) {
-    throw new Error("Unauthorized: Not a member of this studio");
+    throw new Error(
+      "Unauthorized: Not a member of this studio",
+    );
   }
 
   return { userSession };
@@ -62,7 +141,9 @@ export const dashboardShot = query({
       return doc;
     }
 
-    let latestShot: Awaited<ReturnType<typeof ctx.db.get>> | null = null;
+    let latestShot: Awaited<
+      ReturnType<typeof ctx.db.get>
+    > | null = null;
 
     for (const membership of memberships) {
       const shots = await ctx.db
@@ -73,7 +154,10 @@ export const dashboardShot = query({
         .collect();
 
       for (const shot of shots) {
-        if (!latestShot || shot._creationTime > latestShot._creationTime) {
+        if (
+          !latestShot ||
+          shot._creationTime > latestShot._creationTime
+        ) {
           latestShot = shot;
         }
       }
@@ -96,7 +180,8 @@ export const listStudioShots = query({
       .collect();
 
     return shots.sort(
-      (left, right) => right._creationTime - left._creationTime,
+      (left, right) =>
+        right._creationTime - left._creationTime,
     );
   },
 });
@@ -126,32 +211,43 @@ export const createShot = mutation({
     ctx,
     { title, inputs, platforms, studioId },
   ) => {
-    const { userSession } = await requireAuth(ctx);
-
-    const membership = await ctx.db
-      .query("studio_members")
-      .withIndex("by_user", (q) =>
-        q.eq("userId", userSession.subject),
-      )
-      .filter((q) => q.eq(q.field("studioId"), studioId))
-      .first();
-
-    if (!membership) {
-      throw new Error("Unauthorized: Not a member of this studio");
-    }
+    const { userSession } = await requireStudioMembership(
+      ctx,
+      studioId,
+    );
 
     return await ctx.db.insert("shots", {
       title,
       inputs,
       studioId,
       createdBy: userSession.subject,
-      platforms: platforms ?? {
-        x: defaultPlatformEntry(),
-        instagram: defaultPlatformEntry(),
-        youtube: defaultPlatformEntry(),
-        tiktok: defaultPlatformEntry(),
-        snapchat: defaultPlatformEntry(),
-      },
+      platforms: normalizeShotPlatforms(platforms),
     });
+  },
+});
+
+export const deleteShot = mutation({
+  args: { shotId: v.id("shots") },
+  handler: async (ctx, { shotId }) => {
+    const shot = await ctx.db.get(shotId);
+    if (!shot) {
+      throw new Error("Shot not found");
+    }
+
+    const admin = await isStudioAdmin(ctx, shot.studioId);
+    if (!admin) {
+      throw new Error(
+        "Unauthorized: Only admins can delete shots.",
+      );
+    }
+
+    const mediaUrls = collectShotMediaUrls(shot);
+
+    await ctx.db.delete(shotId);
+
+    return {
+      mediaUrls,
+      studioId: shot.studioId,
+    };
   },
 });

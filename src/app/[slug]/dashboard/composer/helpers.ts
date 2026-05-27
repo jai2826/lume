@@ -1,12 +1,12 @@
 import { PLATFORM_SETTINGS } from "@/app/[slug]/dashboard/composer/config";
 import {
-  ComposerAttachment,
-  PlatformDraftState,
-  UploadedMediaKind,
+    ComposerAttachment,
+    PlatformDraftState,
+    UploadedMediaKind,
 } from "@/app/[slug]/dashboard/composer/types";
 import {
-  EMPTY_LINKED_ACCOUNTS,
-  LinkedAccountsSnapshot,
+    EMPTY_LINKED_ACCOUNTS,
+    LinkedAccountsSnapshot,
 } from "@/atom/studioCacheAtoms";
 import { PLATFORMS } from "@/lib/constants";
 import { PlatformKey } from "@/lib/types";
@@ -19,6 +19,9 @@ export function createEmptyPlatformDrafts(): PlatformDraftState {
         PLATFORM_SETTINGS[platform.key].defaultPostType,
       notes: "",
       generatedText: "",
+      aiPrompt: "",
+      generatedImageUrl: "",
+      referenceImageUrls: [],
       status: "idle",
       mediaAssetUrl: "",
     };
@@ -36,6 +39,9 @@ export function createDraftsFromLinkedAccounts(
         PLATFORM_SETTINGS[platform.key].defaultPostType,
       notes: "",
       generatedText: "",
+      aiPrompt: "",
+      generatedImageUrl: "",
+      referenceImageUrls: [],
       status: "idle",
       mediaAssetUrl: "",
     };
@@ -145,4 +151,65 @@ export function buildGeneratedCopy({
     `Media: ${attachmentSummary}.`,
     followUpByPlatform[platform],
   ].join("\n");
+}
+
+export function buildGeneratedAiPrompt({
+  platform,
+  title,
+  text,
+  postType,
+  notes,
+  attachments,
+}: {
+  platform: PlatformKey;
+  title: string;
+  text: string;
+  postType: string;
+  notes: string;
+  attachments: ComposerAttachment[];
+}) {
+  const platformLabel =
+    PLATFORMS.find((entry) => entry.key === platform)
+      ?.label ?? platform;
+  const platformPrompt = PLATFORM_SETTINGS[platform].prompt;
+  const attachmentSummary =
+    summarizeAttachments(attachments) ||
+    "no media attached yet";
+  const sourceText = text.trim() || title.trim();
+  const noteText = notes.trim();
+
+  return [
+    `Create a ${postType.toLowerCase()} concept for ${platformLabel}.`,
+    `Visual direction: ${platformPrompt}`,
+    sourceText
+      ? `Core prompt: ${sourceText}`
+      : "Core prompt: focus on the strongest benefit in the input.",
+    `Reference media: ${attachmentSummary}.`,
+    noteText ? `Platform notes: ${noteText}` : "",
+    "Return a concise image brief with one clear focal point, readable text treatment when useful, and platform-native framing.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function getReferenceImageUrls(
+  attachments: ComposerAttachment[],
+) {
+  const imageUrls = attachments
+    .filter(
+      (attachment) =>
+        attachment.kind === "image" &&
+        Boolean(attachment.publicUrl),
+    )
+    .map((attachment) => attachment.publicUrl as string);
+
+  if (imageUrls.length) {
+    return imageUrls;
+  }
+
+  const fallback = attachments.find(
+    (attachment) => Boolean(attachment.publicUrl),
+  );
+
+  return fallback?.publicUrl ? [fallback.publicUrl] : [];
 }

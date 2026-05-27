@@ -5,7 +5,7 @@ import {
 } from "../_generated/server";
 
 
-export async function requireStudioAdmin(
+export async function isStudioAdmin(
   ctx: QueryCtx | MutationCtx,
   studioId: Doc<"studios">["_id"],
 ) {
@@ -18,11 +18,29 @@ export async function requireStudioAdmin(
     .filter((q) => q.eq(q.field("studioId"), studioId))
     .first();
 
-  if (!membership || membership.role !== "admin") {
+  return Boolean(membership && membership.role === "admin");
+}
+
+export async function requireStudioAdmin(
+  ctx: QueryCtx | MutationCtx,
+  studioId: Doc<"studios">["_id"],
+) {
+  const admin = await isStudioAdmin(ctx, studioId);
+
+  if (!admin) {
     throw new Error(
       "Unauthorized: Only admins can manage this studio.",
     );
   }
+
+  const { userSession } = await requireAuth(ctx);
+  const membership = await ctx.db
+    .query("studio_members")
+    .withIndex("by_user", (q) =>
+      q.eq("userId", userSession.subject),
+    )
+    .filter((q) => q.eq(q.field("studioId"), studioId))
+    .first();
 
   return { userSession: userSession, membership };
 }

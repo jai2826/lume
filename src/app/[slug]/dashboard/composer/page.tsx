@@ -6,7 +6,6 @@ import {
   ArrowLeftIcon,
   Check,
   CircleQuestionMarkIcon,
-  File,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -15,7 +14,6 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -34,16 +32,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
 import DashboardHeader from "@/app/[slug]/_components/DashboardHeader";
 import { PLATFORM_SETTINGS } from "@/app/[slug]/dashboard/composer/config";
 import {
-  buildGeneratedCopy,
   createDraftsFromLinkedAccounts,
   createEmptyPlatformDrafts,
   getMediaKind,
@@ -60,6 +53,14 @@ import {
 } from "@/app/[slug]/dashboard/composer/types";
 import { activeStudioAtom } from "@/atom/studioAtoms";
 import { EMPTY_LINKED_ACCOUNTS } from "@/atom/studioCacheAtoms";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -71,19 +72,8 @@ import type { PlatformKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 
 export default function ComposerPage() {
-  const router = useRouter();
   const activeStudio = useAtomValue(activeStudioAtom);
   const studioId = activeStudio?.studioId;
   const slug = activeStudio?.slug;
@@ -111,7 +101,6 @@ export default function ComposerPage() {
       createEmptyPlatformDrafts(),
     );
   const [loading, setLoading] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(
     null,
   );
@@ -125,10 +114,6 @@ export default function ComposerPage() {
     uploaded: "Uploaded",
     error: "Failed",
   };
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     attachmentsRef.current = attachments;
@@ -185,9 +170,8 @@ export default function ComposerPage() {
 
   const primaryMediaUrl =
     uploadedAttachments[0]?.publicUrl ?? "";
-  const renderedLinkedAccounts = isMounted
-    ? linkedAccounts
-    : EMPTY_LINKED_ACCOUNTS;
+  const renderedLinkedAccounts =
+    linkedAccounts ?? EMPTY_LINKED_ACCOUNTS;
 
   const selectedTargetCount = useMemo(
     () =>
@@ -383,10 +367,10 @@ export default function ComposerPage() {
     useState<GeneratePhase>("idle");
 
   const generateLabel: Record<GeneratePhase, string> = {
-    idle: "Generate",
+    idle: "Generate prompts & images",
     uploading: "Uploading files...",
-    generating: "Generating drafts...",
-    done: "Regenerate",
+    generating: "Generating prompts & images...",
+    done: "Regenerate prompts & images",
   };
 
   const isGenerating =
@@ -503,46 +487,103 @@ export default function ComposerPage() {
         toast.success("Files uploaded successfully.");
       }
 
-      // ── Phase 2: Generate drafts ────────────────────────────
+      // ── Phase 2: Generate prompts and images ────────────────
       setGeneratePhase("generating");
 
-      // Read the freshest attachment state after uploads settled
       const currentAttachments = attachmentsRef.current;
       const uploadedAttachments = currentAttachments.filter(
         (a) => a.status === "uploaded" && a.publicUrl,
       );
-      const primaryMediaUrl =
-        uploadedAttachments[0]?.publicUrl ?? "";
+      const referenceImages = uploadedAttachments
+        .filter((attachment) => attachment.kind === "image")
+        .map((attachment) => ({
+          url: attachment.publicUrl!,
+          mimeType: attachment.file.type || "image/png",
+        }));
 
-      const nextDrafts = PLATFORMS.reduce(
-        (drafts, platform) => {
-          const current = platformDrafts[platform.key];
-          const postType =
-            current.postType ||
-            PLATFORM_SETTINGS[platform.key].defaultPostType;
-
-          drafts[platform.key] = {
-            ...current,
-            postType,
-            generatedText: buildGeneratedCopy({
-              platform: platform.key,
-              title,
-              text,
-              postType,
-              attachments: currentAttachments,
+      const response = await fetch(
+        "/api/composer/generate",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            studioId,
+            title: title.trim(),
+            text: text.trim(),
+            attachments: referenceImages,
+            platforms: PLATFORMS.map((platform) => {
+              const current = platformDrafts[platform.key];
+              return {
+                key: platform.key,
+                selected: current.selected,
+                postType:
+                  current.postType ||
+                  PLATFORM_SETTINGS[platform.key]
+                    .defaultPostType,
+                notes: current.notes,
+              };
             }),
-            status: "ready",
-            mediaAssetUrl: primaryMediaUrl,
-          };
-
-          return drafts;
+          }),
         },
-        {} as PlatformDraftState,
       );
 
-      setPlatformDrafts(nextDrafts);
+      if (!response.ok) {
+        const payload = (await response
+          .json()
+          .catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(
+          payload.error ?? "Generate failed.",
+        );
+      }
+
+      const payload = (await response.json()) as {
+        prompts?: Partial<
+          Record<
+            PlatformKey,
+            {
+              aiPrompt: string;
+              generatedImageUrl?: string;
+            }
+          >
+        >;
+      };
+
+      setPlatformDrafts((current) => {
+        const nextDrafts = { ...current };
+
+        PLATFORMS.forEach((platform) => {
+          const generated = payload.prompts?.[platform.key];
+          if (!generated) {
+            return;
+          }
+
+          const existing = nextDrafts[platform.key];
+          nextDrafts[platform.key] = {
+            ...existing,
+            aiPrompt: generated.aiPrompt,
+            generatedImageUrl:
+              generated.generatedImageUrl ?? "",
+            referenceImageUrls: referenceImages.map(
+              (image) => image.url,
+            ),
+            status: generated.aiPrompt ? "ready" : "idle",
+          };
+        });
+
+        return nextDrafts;
+      });
+
       setGeneratePhase("done");
-      toast.success("Drafts generated for all platforms.");
+      console.log(
+        "Generate prompts and images response:",
+        payload,
+        platformDrafts,
+      );
+      toast.success("Prompts and images generated.");
     } catch (err) {
       toast.error(
         err instanceof Error
@@ -587,6 +628,21 @@ export default function ComposerPage() {
       );
     }
 
+    const selectedPlatforms = PLATFORMS.filter(
+      (platform) => platformDrafts[platform.key].selected,
+    );
+
+    const currentAttachments = attachmentsRef.current;
+    const uploadedAttachments = currentAttachments.filter(
+      (a) => a.status === "uploaded" && a.publicUrl,
+    );
+    const referenceImages = uploadedAttachments
+      .filter((attachment) => attachment.kind === "image")
+      .map((attachment) => ({
+        url: attachment.publicUrl!,
+        mimeType: attachment.file.type || "image/png",
+      }));
+
     const inputs: {
       text: string;
       images?: string[];
@@ -618,20 +674,108 @@ export default function ComposerPage() {
     if (uploadedAudioUrls.length)
       inputs.audios = uploadedAudioUrls;
 
+    let nextDrafts = platformDrafts;
+
+    if (selectedPlatforms.length) {
+      const response = await fetch(
+        "/api/composer/generate",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            studioId,
+            title: title.trim(),
+            text: text.trim(),
+            attachments: referenceImages,
+            platforms: selectedPlatforms.map((platform) => {
+              const current = platformDrafts[platform.key];
+              return {
+                key: platform.key,
+                selected: current.selected,
+                postType:
+                  current.postType ||
+                  PLATFORM_SETTINGS[platform.key]
+                    .defaultPostType,
+                notes: current.notes,
+              };
+            }),
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const payload = (await response
+          .json()
+          .catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(
+          payload.error ?? "Generate failed.",
+        );
+      }
+
+      const payload = (await response.json()) as {
+        prompts?: Partial<
+          Record<
+            PlatformKey,
+            {
+              aiPrompt: string;
+              generatedImageUrl?: string;
+            }
+          >
+        >;
+      };
+
+      nextDrafts = { ...platformDrafts };
+
+      PLATFORMS.forEach((platform) => {
+        const generated = payload.prompts?.[platform.key];
+        if (!generated) {
+          return;
+        }
+
+        const existing = nextDrafts[platform.key];
+        nextDrafts[platform.key] = {
+          ...existing,
+          aiPrompt: generated.aiPrompt,
+          generatedImageUrl:
+            generated.generatedImageUrl ?? "",
+          referenceImageUrls: referenceImages.map(
+            (image) => image.url,
+          ),
+          status: generated.aiPrompt
+            ? "ready"
+            : existing.status,
+        };
+      });
+
+      setPlatformDrafts(nextDrafts);
+    }
+
     const platforms: ShotPlatformsPayload =
       PLATFORMS.reduce((result, platform) => {
-        const draft = platformDrafts[platform.key];
+        const draft = nextDrafts[platform.key];
         const generatedText = draft.generatedText.trim();
+        const aiPrompt = draft.aiPrompt.trim();
 
         result[platform.key] = {
           status:
-            draft.selected && generatedText
+            draft.selected && (generatedText || aiPrompt)
               ? "ready"
               : "idle",
           selected: draft.selected,
           postType: draft.postType.trim() || undefined,
           notes: draft.notes.trim() || undefined,
           generatedText: generatedText || undefined,
+          aiPrompt: aiPrompt || undefined,
+          generatedImageUrl:
+            draft.generatedImageUrl || undefined,
+          referenceImageUrls: draft.referenceImageUrls
+            .length
+            ? draft.referenceImageUrls
+            : undefined,
           mediaAssetUrl:
             draft.mediaAssetUrl ||
             primaryMediaUrl ||
@@ -643,25 +787,25 @@ export default function ComposerPage() {
 
     setLoading(true);
     try {
-      const newId = await createShot({
+      await createShot({
         title: title.trim() || undefined,
         inputs,
         platforms,
         studioId: studioId as Id<"studios">,
       });
 
-      toast.success("Shot created!");
-      if (slug && newId) {
-        router.push(`/${slug}/dashboard/shots/${newId}`);
-      } else if (slug) {
-        router.push(`/${slug}/dashboard/shots`);
-      }
+      toast.success(
+        selectedPlatforms.length
+          ? "Media generated."
+          : "Shot saved.",
+      );
     } catch (err) {
       toast.error(
         err instanceof Error
           ? err.message
           : "Failed to create shot.",
       );
+    } finally {
       setLoading(false);
     }
   };
@@ -924,9 +1068,8 @@ export default function ComposerPage() {
                       Target summary
                     </p>
                     <p className="mt-1 font-semibold text-foreground">
-                      {isMounted
-                        ? `${selectedTargetCount} selected / ${connectedTargetCount} connected`
-                        : "Loading targets..."}
+                      `${selectedTargetCount} selected / $
+                      {connectedTargetCount} connected`
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Connected networks are enabled by
@@ -987,7 +1130,8 @@ export default function ComposerPage() {
                     </h3>
                     <p className="text-xs text-muted-foreground">
                       Each social network has its own
-                      editable settings and generated copy.
+                      editable settings, prompt brief, and
+                      generated image.
                     </p>
                   </div>
                 </div>
@@ -1031,6 +1175,24 @@ export default function ComposerPage() {
                             platform.key,
                             {
                               generatedText: value,
+                            },
+                          )
+                        }
+                        onAiPromptChange={(value) =>
+                          updatePlatformDraft(
+                            platform.key,
+                            {
+                              aiPrompt: value,
+                            },
+                          )
+                        }
+                        onGeneratedImageUrlChange={(
+                          value,
+                        ) =>
+                          updatePlatformDraft(
+                            platform.key,
+                            {
+                              generatedImageUrl: value,
                             },
                           )
                         }
@@ -1228,6 +1390,8 @@ function PlatformDraftCard({
   onPostTypeChange,
   onNotesChange,
   onGeneratedTextChange,
+  onAiPromptChange,
+  onGeneratedImageUrlChange,
 }: {
   platform: (typeof PLATFORMS)[number];
   connected: boolean;
@@ -1235,6 +1399,8 @@ function PlatformDraftCard({
   onPostTypeChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onGeneratedTextChange: (value: string) => void;
+  onAiPromptChange: (value: string) => void;
+  onGeneratedImageUrlChange: (value: string) => void;
 }) {
   const Icon = platform.icon;
 
@@ -1279,6 +1445,36 @@ function PlatformDraftCard({
         </div>
       </CardHeader>
 
+      {draft.generatedImageUrl ? (
+        <div className="px-6 pb-4">
+          <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20">
+            <div className="border-b border-border/60 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Generated media preview
+            </div>
+            <a
+              href={draft.generatedImageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block">
+              <img
+                src={draft.generatedImageUrl}
+                alt={`${platform.label} generated media`}
+                className="h-auto w-full object-cover"
+              />
+            </a>
+            <div className="px-3 py-2">
+              <a
+                href={draft.generatedImageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-xs font-medium text-primary hover:underline">
+                Open generated image
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <CardContent
         className={cn(
           "space-y-4 transition-all duration-300 ease-in-out overflow-hidden",
@@ -1298,11 +1494,15 @@ function PlatformDraftCard({
             <SelectTrigger className="mt-2 rounded-sm  w-full">
               <SelectValue placeholder="Select post type" />
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} className={"m-0 p-2  rounded-sm"}>
+            <SelectContent
+              alignItemWithTrigger={false}
+              className={"m-0 p-2  rounded-sm"}>
               {PLATFORM_SETTINGS[platform.key].options.map(
                 (type) => (
                   <SelectItem
-                  className={"rounded-sm! hover:bg-accent/50 p-2 my-0.5"}
+                    className={
+                      "rounded-sm! hover:bg-accent/50 p-2 my-0.5"
+                    }
                     key={type}
                     value={type}>
                     {type}
@@ -1329,17 +1529,67 @@ function PlatformDraftCard({
 
         <div className={" mb-4"}>
           <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            Generated copy
+            Draft copy
           </label>
           <Textarea
             value={draft.generatedText}
             onChange={(event) =>
               onGeneratedTextChange(event.target.value)
             }
-            placeholder="Click Generate to fill this draft, then edit it here."
+            placeholder="Optional manual copy for this platform draft."
             className="mt-2 min-h-36 text-sm leading-6"
           />
         </div>
+
+        <div className="mb-4">
+          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            AI prompt
+          </label>
+          <Textarea
+            value={draft.aiPrompt}
+            onChange={(event) =>
+              onAiPromptChange(event.target.value)
+            }
+            placeholder="Click Generate prompts & images to create a platform-specific brief."
+            className="mt-2 min-h-28 text-sm leading-6"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="ml-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Generated image URL
+          </label>
+          <Textarea
+            value={draft.generatedImageUrl}
+            onChange={(event) =>
+              onGeneratedImageUrlChange(event.target.value)
+            }
+            placeholder="Generated image will appear here after Gemini finishes."
+            className="mt-2 min-h-20 text-sm leading-6"
+          />
+        </div>
+
+        {draft.referenceImageUrls.length ? (
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Reference images
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {draft.referenceImageUrls.map(
+                (url, index) => (
+                  <a
+                    key={`${url}-${index}`}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-border/60 px-2.5 py-1 text-xs font-medium text-primary hover:underline">
+                    Image {index + 1}
+                  </a>
+                ),
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {draft.mediaAssetUrl ? (
           <a
